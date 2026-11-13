@@ -11,6 +11,7 @@ let _au = null;
 
 function audioStart() {
   if (_au) return _au;
+  if (typeof _NO_SOUND !== 'undefined' && _NO_SOUND) return null; // insecure page: no p5.sound
   try {
     if (typeof userStartAudio === 'function') userStartAudio();
     const mic = new p5.AudioIn();

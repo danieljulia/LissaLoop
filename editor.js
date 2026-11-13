@@ -384,7 +384,9 @@ function draw() {
   if (!_au) {
     fill(255); noStroke();
     textAlign(CENTER, CENTER); textSize(18);
-    text('click to turn on the sound', width / 2, height - 80);
+    text(_NO_SOUND
+      ? 'no sound here: open it with python3 -m http.server 8000 → http://localhost:8000'
+      : 'click to turn on the sound', width / 2, height - 80);
   }
 }
 
