@@ -1,5 +1,5 @@
 /* ============================================================
-   scope.js — vector oscilloscope live coding library
+   lissaloop.js — LissaLoop, vector oscilloscope live coding library
    License: MIT — see LICENSE (p5.js and p5.sound in lib/ keep their own LGPL-2.1)
    Requires: p5.js + p5.sound + audio.js
    A beam is a point of light that draws a figure many times per second
@@ -301,7 +301,7 @@ class Beam {
   // r(prop, signal, x)        multiply: ×1 in silence → ×x at full signal (hue: + x degrees)
   // r(prop, signal, min, max) range: min in silence → max at full signal
   r(prop, fn, a, b) {
-    if (!_PROPS.includes(prop)) { console.warn('[scope] r(): unknown prop', prop); return this; }
+    if (!_PROPS.includes(prop)) { console.warn('[lissaloop] r(): unknown prop', prop); return this; }
     if (this._rxAuto) { this._rx = []; this._rxAuto = false; }
     this._rx.push({ prop, fn, a: _num(a, 1), b: b === undefined ? undefined : _num(b, 0) });
     return this;

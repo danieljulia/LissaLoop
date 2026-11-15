@@ -1,8 +1,11 @@
 /* ============================================================
-   audio.js — sound signals for scope.js
+   audio.js — sound signals for LissaLoop
    The same audio engine as flocks.js (https://github.com/danieljulia/flocks):
    microphone + FFT, adaptive noise gate, signals and tempo detection.
    Adds: pitch (dominant frequency), wav(t) (the raw waveform) and _wave().
+   Loud music: raw microphone (no browser gain/noise processing), spectrum in
+   float dB (no -30 dB ceiling), bands measured against their own history and
+   whitened onsets, so the signals keep moving when the sound is very loud.
    License: MIT. Requires p5.js + p5.sound
    ============================================================ */
 
@@ -16,14 +19,14 @@ function audioStart() {
     if (typeof userStartAudio === 'function') userStartAudio();
     const mic = new p5.AudioIn();
     mic.start(
-      () => console.log('[scope] mic on'),
-      err => console.warn('[scope] mic failed:', err)
+      () => console.log('[lissaloop] mic on'),
+      err => console.warn('[lissaloop] mic failed:', err)
     );
     const fft = new p5.FFT(0.8, 1024);
     fft.setInput(mic);
     _au = { mic, fft };
   } catch (e) {
-    console.error('[scope] could not start audio:', e);
+    console.error('[lissaloop] could not start audio:', e);
   }
   return _au;
 }
@@ -34,54 +37,103 @@ window.addEventListener('mousedown', audioStart);
 window.addEventListener('touchstart', audioStart);
 window.addEventListener('keydown', audioStart);
 
-// adaptive normalization with a noise gate:
-// - base: room noise floor. Rises VERY slowly (so sustained music
-//   isn't eaten) and falls fast → ~0 in silence
-// - peak: recent maximum (decays slowly) → quiet music still
-//   uses the whole 0..1 range
-const _np = {};
-for (const e of ['bass', 'mid', 'treble', 'amp']) _np[e] = { base: 0, peak: 0.05 };
-
-function _norm(e, raw) {
-  const p = _np[e];
-  p.base += (raw - p.base) * (raw < p.base ? 0.02 : 0.0002);
-  const gate = p.base * 1.2;
-  p.peak = Math.max(p.peak * 0.999, raw, gate + 0.02);
-  const g = Math.max(0, raw - gate);                         // noise gate
-  return Math.min(1, g / Math.max(p.peak - gate, 0.0001));   // 0..1
+// ---------- 1. CLEAN INPUT ----------
+// By default browsers process the microphone for video calls: automatic gain
+// (squashes the dynamics of the music), noise suppression (eats sustained
+// notes) and echo cancellation. p5.sound only turns off the last one, so every
+// microphone request made from this page asks for the raw signal.
+if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+  const _gum = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+  navigator.mediaDevices.getUserMedia = c => {
+    if (c && c.audio) {
+      if (c.audio === true) c.audio = {};
+      Object.assign(c.audio, { echoCancellation: false, noiseSuppression: false, autoGainControl: false });
+    }
+    return _gum(c);
+  };
 }
+
+// ---------- 2. SPECTRUM IN DECIBELS ----------
+// fft.analyze() returns bytes clamped between -100 and -30 dB: with loud music
+// most bins sit at 255 and the bands stop moving. Float decibels have no
+// ceiling (0 dB = full scale), so the spectrum keeps its shape at any volume.
+const _DB_MIN = -120;
+let _specFrame = -1, _spec = null;
+function _spectrum() {
+  if (frameCount !== _specFrame) {
+    _specFrame = frameCount;
+    const an = _au.fft.analyser;
+    if (!_spec) _spec = new Float32Array(an.frequencyBinCount);
+    an.getFloatFrequencyData(_spec);
+    for (let i = 0; i < _spec.length; i++) {
+      const v = _spec[i];
+      _spec[i] = v > _DB_MIN ? Math.min(0, v) : _DB_MIN; // also catches -Infinity / NaN
+    }
+  }
+  return _spec;
+}
+
+// Every band is measured against its OWN recent history, in dB:
+//   floor  room noise: falls fast, rises very slowly (minutes)
+//   lo     recent minimum (~1 s)  ·  hi  recent maximum (~1.5 s)
+//   top    long-term maximum (~10 s)
+// value = 65% contrast (where the level sits between lo and hi, at least 9 dB
+// apart) + 35% presence (between floor and top), gated near the noise floor.
+// So a kick still jumps out of loud, compressed or saturated music, and a
+// steady loud sound reads as "present" without pinning the signal at 1.
+const _np = {};
+for (const e of ['bass', 'mid', 'treble', 'amp']) _np[e] = null;
+
+function _norm(e, db) {
+  let p = _np[e];
+  if (!p) p = _np[e] = { floor: db, lo: db, hi: db + 12, top: db + 12 };
+  // followers: jump to a new extreme at once, drift back exponentially
+  // (so they adapt in seconds, whatever the distance: silence → loud music)
+  p.floor += (db - p.floor) * (db < p.floor ? 0.05 : 0.0005);
+  p.lo  = db < p.lo  ? db : p.lo  + (db - p.lo)  * 0.015;
+  p.hi  = db > p.hi  ? db : p.hi  + (db - p.hi)  * 0.01;
+  p.top = db > p.top ? db : p.top + (db - p.top) * 0.0015;
+  p.lo  = Math.max(p.lo, p.floor);
+  p.hi  = Math.max(p.hi, p.lo + 9);
+  p.top = Math.max(p.top, p.floor + 12);
+  const contrast = (db - p.lo) / (p.hi - p.lo);
+  const presence = (db - p.floor) / (p.top - p.floor);
+  const gate = _clamp01((db - p.floor - 3) / 6);             // silence → 0
+  return _clamp01(0.65 * _clamp01(contrast) + 0.35 * _clamp01(presence)) * gate;
+}
+const _clamp01 = x => (x < 0 ? 0 : x > 1 ? 1 : x);
 
 // frequency ranges (Hz). p5's 'bass' is only 20-140, too narrow
 // for small speakers/mics → bass goes from 20 to 800 (covers the
 // fundamentals and harmonics of kicks and bass lines)
 const _RANGES = { bass: [20, 800], mid: [800, 2600], treble: [2600, 14000] };
 
-// one FFT per frame, however many signals read it
-let _specFrame = -1, _spec = null;
-function _spectrum() {
-  if (frameCount !== _specFrame) { _specFrame = frameCount; _spec = _au.fft.analyze(); }
-  return _spec;
-}
-
-// band energy = mean of the loudest 20% of bins in the range.
-// (getEnergy averages the WHOLE range, so narrow peaks like a kick
-// fundamental get diluted among empty bins)
-function _bandEnergy(lo, hi) {
+// band level (dB) = power mean of the loudest 20% of bins in the range
+// (a plain mean dilutes narrow peaks like a kick fundamental among empty bins)
+function _bandDb(lo, hi) {
   const s = _spectrum();
   const nyq = getAudioContext().sampleRate / 2;
   const i0 = Math.max(0, Math.floor((lo / nyq) * s.length));
   const i1 = Math.min(s.length - 1, Math.ceil((hi / nyq) * s.length));
   const slice = Array.from(s.slice(i0, i1 + 1)).sort((a, b) => b - a);
   const k = Math.max(1, Math.floor(slice.length * 0.2));
-  let sum = 0;
-  for (let i = 0; i < k; i++) sum += slice[i];
-  return sum / k / 255;
+  let sum = 0;                                   // power mean: the strongest bins
+  for (let i = 0; i < k; i++) sum += Math.pow(10, slice[i] / 10); // dominate (a kick
+  return 10 * Math.log10(sum / k + 1e-12);       // isn't diluted by quieter bins)
+}
+
+// overall level (dB) = RMS of the waveform
+function _ampDb() {
+  const w = _wave();
+  let s = 0;
+  for (let i = 0; i < w.length; i++) s += w[i] * w[i];
+  return Math.max(_DB_MIN, 20 * Math.log10(Math.sqrt(s / w.length) + 1e-9));
 }
 
 function _band(e) {
   if (!_au) return 0;
   const [lo, hi] = _RANGES[e];
-  return _norm(e, _bandEnergy(lo, hi));
+  return _norm(e, _bandDb(lo, hi));
 }
 
 // ---------- SIGNALS ----------
@@ -156,17 +208,45 @@ function tap() {
 const _TS = 10, _TN = 800, _TLAG = 50; // slot ms · slots · audio latency ms
 let _tAuto = true, _tLock = false, _tConf = 0;
 const _tBuf = new Float32Array(_TN);
-let _tPrev = null, _tSlot = -1, _tFrame = -1, _tNext = 0, _tCand = 0, _tMax = 30, _tFilled = 0;
+let _tSlot = -1, _tFrame = -1, _tNext = 0, _tCand = 0, _tMax = 30, _tFilled = 0;
+
+// ---------- 3. WHITENED ONSETS ----------
+// Onset strength = how much NEW energy appears in this frame, summed over the
+// bins up to ~3 kHz (bass counts double). Each bin is first "whitened":
+//   mx  its recent maximum (falls 6 dB/s) · nf  its noise floor
+// and its level is kept between nf + 6 dB and mx - 40 dB before comparing with
+// the last frame. Measured in dB, a hit counts the same in quiet or loud music,
+// noise below the floor adds nothing, and a bin that is always loud (saturated)
+// stops counting until it really changes.
+const _FB = 150;
+const _fPrev = new Float32Array(_FB), _fMx = new Float32Array(_FB).fill(-60), _fNf = new Float32Array(_FB).fill(-60);
+let _fInit = false, _fFrame = -1, _fAll = 0, _fLow = 0;
+function _flux() {                       // once per frame; also sets _fLow (bass only)
+  if (frameCount === _fFrame) return _fAll;
+  _fFrame = frameCount;
+  const sp = _spectrum();
+  let f = 0, fl = 0;
+  for (let i = 1; i < _FB; i++) {
+    const v = sp[i];
+    _fMx[i] = Math.max(v, _fMx[i] - 0.1);
+    _fNf[i] += (v - _fNf[i]) * (v < _fNf[i] ? 0.05 : 0.001);
+    const w = Math.max(v, _fNf[i] + 6, _fMx[i] - 40);
+    if (_fInit) {
+      const d = w - _fPrev[i];
+      if (d > 0) { if (i < 40) { f += d * 2; fl += d; } else f += d; }
+    }
+    _fPrev[i] = w;
+  }
+  _fInit = true;
+  _fAll = f; _fLow = fl;
+  return f;
+}
 
 function _tempoStep() {
   if (frameCount === _tFrame) return;       // once per frame
   _tFrame = frameCount;
   if (!_au || !_tAuto) return;
-  const sp = _spectrum();
-  let f = 0;
-  if (_tPrev) for (let i = 1; i < 150; i++) { const d = sp[i] - _tPrev[i]; if (d > 0) f += i < 40 ? d * 2 : d; }
-  else _tPrev = new Float32Array(150);
-  for (let i = 0; i < 150; i++) _tPrev[i] = sp[i];
+  const f = _flux();
   _tMax = Math.max(_tMax * 0.995, f, 30);   // quiet rooms don't get amplified
   const v = f / _tMax;
   const slot = Math.floor(millis() / _TS);
@@ -230,8 +310,17 @@ const tempo = sig(() => { _tempoStep(); return Math.min(1, Math.max(0, (_bpm - 6
 const bass   = sig(() => _band('bass'));
 const mid    = sig(() => _band('mid'));
 const treble = sig(() => _band('treble'));
-const amp    = sig(() => (_au ? _norm('amp', _au.mic.getLevel()) : 0));
-const beat   = bass.beat(); // pulse on every bass hit
+const amp    = sig(() => (_au ? _norm('amp', _ampDb()) : 0));
+// onset: new energy in the bass (whitened, see 3.), 0..1 against its recent peak.
+// It reacts to the CHANGE, not the level, so it still hits in loud/saturated music
+let _oPk = 30;
+const onset = sig(() => {
+  if (!_au) return 0;
+  _flux();
+  _oPk = Math.max(_oPk * 0.995, _fLow, 20);
+  return _clamp01(_fLow / _oPk);
+});
+const beat   = onset.beat(0.45); // pulse on every bass hit
 
 // ---------- SOUND METER (for testing) ----------
 // bass / mid / treble / amp / beat bars (already normalized and gated).
@@ -295,7 +384,7 @@ function hz() {
   const i0 = Math.max(2, Math.floor(60 / bw)), i1 = Math.min(s.length - 2, Math.ceil(2000 / bw));
   let bi = i0;
   for (let i = i0; i <= i1; i++) if (s[i] > s[bi]) bi = i;
-  if (s[bi] < 90 || amp() < 0.15) return _hz;   // too quiet: keep the last note
+  if (s[bi] < -75 || amp() < 0.15) return _hz;  // too quiet: keep the last note
   const y0 = s[bi - 1], y1 = s[bi], y2 = s[bi + 1], den = y0 - 2 * y1 + y2;
   const f = (bi + (den < 0 ? 0.5 * (y0 - y2) / den : 0)) * bw;
   _hz += (f - _hz) * 0.5;

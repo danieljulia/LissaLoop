@@ -1,4 +1,4 @@
-/* editor.js — tiny live coding environment on top of scope.js
+/* editor.js — tiny live coding environment on top of lissaloop.js (LissaLoop)
    (the same editor as flocks.js, adapted)
    The user code is shown over the canvas and is editable:
      auto-run     → the code runs by itself as you type
@@ -10,7 +10,7 @@
    Do NOT use let/const at the top level: use plain globals
    (b = beam(...)) so re-running doesn't throw. */
 
-const DEMO_CODE = `// Audio scope
+const DEMO_CODE = `// LissaLoop
 // 1. press Ctrl/Cmd+Enter to run (it also runs as you type)
 // 2. remove the // in front of a line, see what changes
 
@@ -35,7 +35,7 @@ function live() {
 }
 `;
 
-const HELP_TEXT = `SCOPE.JS — QUICK REFERENCE
+const HELP_TEXT = `LISSALOOP — QUICK REFERENCE
 ─────────────────────────────
 Ctrl/Cmd+Enter   run the code (it also
                  auto-runs as you type)
@@ -84,6 +84,8 @@ h                hide/show this help
 ▸ SOUND  (signals 0..1)
   bass() mid() treble() amp()
   beat()               pulse on every bass hit
+  onset                new bass energy (the change,
+                       not the level; good when loud)
   pitch                main note, 60Hz=0 … 2kHz=1
   note                 note name: C=0 … B=11/12
   bass.smooth(0.9)     smoother
@@ -116,7 +118,7 @@ h                hide/show this help
 // ---------- SYNTAX HIGHLIGHT (Strudel-like colors) ----------
 const _HL_KEYWORDS = new Set(['function','const','let','var','return','if','else','for','while',
   'of','in','new','true','false','null','undefined','this','break','continue','switch','case','typeof']);
-const _HL_LIB = new Set(['beam','bass','mid','treble','amp','beat','pitch','note','hz','wav','sig','trail','grid','crt',
+const _HL_LIB = new Set(['beam','bass','mid','treble','amp','beat','onset','pitch','note','hz','wav','sig','trail','grid','crt',
   'soundMeter','init','live','audioStart','color','random','noise','width','height','mouseX','mouseY',
   'bpm','tap','phase','bar','tick','lfo','tempo','PI','TAU','HALF_PI','QUARTER_PI','sin','cos','tan','abs','min','max',
   'map','constrain','frameCount','floor','round','sqrt','pow']);
@@ -287,7 +289,7 @@ function setup() {
   });
   document.body.appendChild(bar);
   const title = document.createElement('span');
-  title.textContent = 'Audio scope';
+  title.textContent = 'LissaLoop';
   Object.assign(title.style, {
     color: '#fff', font: 'bold 18px monospace', marginRight: '12px',
   });

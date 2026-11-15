@@ -1,6 +1,6 @@
-# scope.js
+# LissaLoop
 
-A small live coding library for a **vector oscilloscope** that reacts to sound and follows the
+LissaLoop is a small live coding library for a **vector oscilloscope** that reacts to sound and follows the
 tempo of the music, built on [p5.js](https://p5js.org) + p5.sound. It is the sister of
 [flocks.js](https://github.com/danieljulia/flocks): same editor, same sound signals, same way of
 working: type a little, the figure changes right away without a restart.
@@ -41,7 +41,7 @@ Go to <http://localhost:8000> and click once to turn on the microphone.
 | --- | --- |
 | `index.html` | Entry point |
 | `audio.js` | Sound: microphone, FFT, signals, tempo detection (the engine of flocks.js) + waveform and pitch |
-| `scope.js` | The library: beams, figures, phosphor screen |
+| `lissaloop.js` | The library: beams, figures, phosphor screen |
 | `presets.js` | The examples of the editor menu (add yours) |
 | `editor.js` | Mini live coding editor over the canvas |
 | `lib/` | p5.js 1.11.3 and p5.sound, bundled for offline use |
@@ -107,6 +107,7 @@ The same signals as flocks.js (normalized 0..1, adaptive noise gate): `bass` `mi
 
 | Call | Effect |
 | --- | --- |
+| `onset` | new energy in the bass, 0..1: reacts to the change, not the level. `beat` is a pulse made from it |
 | `pitch` | main note, 60 Hz = 0 … 2 kHz = 1 (log). Holds the last note in silence |
 | `note` | the note name: C = 0, C# = 1/12 … B = 11/12. `.r('a', note, 2, 9)`: each note has its own petals |
 | `hz()` | the main frequency in Hz |
@@ -139,6 +140,27 @@ pts echo scale turn`.
 - The waveform is normalized by its recent peak (automatic gain), and the wave and ring modes
   start at a rising zero crossing, like the trigger of a real scope.
 - `spin` and `drift` are counted in bars, so the figures turn with the music.
+
+## Loud music
+
+A very loud or saturated input used to pin every band at 1 (the analyser's bytes stop at -30 dB),
+and the signals stopped moving. Three layers keep them useful:
+
+1. **Raw input.** The microphone is requested without the browser's automatic gain, noise
+   suppression and echo cancellation, which are made for voice calls and squash music.
+2. **Decibels without a ceiling.** The spectrum is read as float dB (0 dB = full scale). Each band
+   is the power mean of its loudest bins and is measured against its own recent history: 65%
+   contrast (between the recent minimum and maximum, at least 9 dB apart) + 35% presence (above the
+   room noise), gated near the noise floor. A kick still jumps out of a wall of sound, and a steady
+   loud sound reads as present without pinning the signal.
+3. **Whitened onsets.** Every bin up to ~3 kHz is kept between its noise floor + 6 dB and its recent
+   maximum - 40 dB, and the frame-to-frame rise is summed in dB. This drives `onset`, `beat` and
+   the tempo detection: a hit counts the same in quiet or loud music, and a bin that is always
+   saturated stops counting until it really changes.
+
+Tested with a synthetic kick + saw + noise: clean, ×10 and hard-clipped, very quiet and silence.
+`beat` caught every kick in all of them (8/8, 8/8, 6/6) and nothing in silence; the old pipeline
+caught 1 and had `bass` stuck at 1.00 when clipped. Not tested yet with a real microphone at a gig.
 
 ## License
 
