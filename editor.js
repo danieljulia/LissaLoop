@@ -148,7 +148,14 @@ function highlight(code) {
 }
 const _HL_CSS = `
 .hc{color:#7d8799;font-style:italic} .hs{color:#c3e88d} .hn{color:#f78c6c}
-.hk{color:#c792ea} .hl{color:#ffcb6b} .hm{color:#82aaff} .hf{color:#89ddff}`;
+.hk{color:#c792ea} .hl{color:#ffcb6b} .hm{color:#82aaff} .hf{color:#89ddff}
+.fl{min-width:100%;width:max-content;margin:0 -12px;padding:0 12px;
+  background:rgba(125,255,154,.10);box-shadow:inset 3px 0 0 rgba(125,255,154,.8);
+  animation:lineflash .7s ease-out}
+.fl.fe{background:rgba(255,90,90,.12);box-shadow:inset 3px 0 0 rgba(255,90,90,.9);
+  animation:lineflashErr .7s ease-out}
+@keyframes lineflash{0%{background:rgba(125,255,154,.55)}100%{background:rgba(125,255,154,.10)}}
+@keyframes lineflashErr{0%{background:rgba(255,90,90,.6)}100%{background:rgba(255,90,90,.12)}}`;
 
 let _err = null;     // error of the last run (syntax / init)
 let _liveErr = null; // error of live() this frame
@@ -170,6 +177,42 @@ function runCode(code) {
     _err = e.message;
     console.error('[editor]', e);
   }
+  flashLines(code, !_err);
+}
+
+// ---------- FLASH OF THE LINES THAT RAN ----------
+// After every run, the lines that changed since the last good run flash and
+// then stay softly marked until the next run (red if the code had an error).
+// Running the same code again flashes all of it.
+let _flash = null, _ranCode = null;
+function _changedLines(oldCode, newCode) {
+  const a = oldCode.split('\n'), b = newCode.split('\n');
+  const n = a.length, m = b.length;
+  // longest common subsequence of lines: the lines of b outside it are new
+  const L = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1));
+  for (let i = n - 1; i >= 0; i--)
+    for (let j = m - 1; j >= 0; j--)
+      L[i][j] = a[i] === b[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  const changed = new Set();
+  let i = 0, j = 0;
+  while (j < m) {
+    if (i < n && a[i] === b[j]) { i++; j++; }
+    else if (i < n && L[i + 1][j] >= L[i][j + 1]) i++;
+    else changed.add(j++);
+  }
+  return changed;
+}
+function flashLines(code, ok) {
+  if (!_flash) return;
+  let changed = _ranCode === null ? null : _changedLines(_ranCode, code);
+  if (!changed || changed.size === 0) changed = null; // first run or same code → all lines
+  const lines = code.split('\n');
+  const cls = ok ? 'fl' : 'fl fe';
+  _flash.innerHTML = lines.map((ln, k) =>
+    `<div${!changed || changed.has(k) ? ` class="${cls}"` : ''}>${_hlEsc(ln) || ' '}</div>`).join('');
+  _flash.scrollTop = _ta ? _ta.scrollTop : 0;
+  _flash.scrollLeft = _ta ? _ta.scrollLeft : 0;
+  if (ok) _ranCode = code;
 }
 
 function setup() {
@@ -207,6 +250,9 @@ function setup() {
     font: '18px/1.45 monospace', padding: '12px', border: 'none',
     whiteSpace: 'pre', tabSize: 2,
   };
+  _flash = document.createElement('pre');   // flash layer, behind the colored code
+  Object.assign(_flash.style, layer, { color: 'transparent', overflow: 'hidden', pointerEvents: 'none' });
+  box.appendChild(_flash);
   _hlPre = document.createElement('pre');
   Object.assign(_hlPre.style, layer, { color: '#e6e6e6', overflow: 'hidden', pointerEvents: 'none' });
   box.appendChild(_hlPre);
@@ -241,6 +287,7 @@ function setup() {
   _ta.addEventListener('scroll', () => {
     _gutter.scrollTop = _ta.scrollTop;
     _hlPre.scrollTop = _ta.scrollTop; _hlPre.scrollLeft = _ta.scrollLeft;
+    _flash.scrollTop = _ta.scrollTop; _flash.scrollLeft = _ta.scrollLeft;
   });
 
   _ta.addEventListener('keydown', (e) => {
