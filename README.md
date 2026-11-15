@@ -64,6 +64,10 @@ every frame (draw them here). The code runs by itself shortly after you stop typ
 | t | tap tempo (or click the ♩ button) |
 | c | random color on the last beam |
 
+**The piece lives in the link.** After every run that works, the code is saved (compressed) in the
+address of the page, so reloading keeps your piece and the **share** button copies a link that opens
+it exactly as it is. The demo code leaves the address clean.
+
 Use plain globals (`b = beam()`), not `let`/`const`. Running again **reuses** each beam (by order,
 or by name with `beam('a')`): its rotation goes on, settings glide to the new values, and a new
 figure **morphs** from the old one instead of jumping.

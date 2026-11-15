@@ -42,6 +42,10 @@ Ctrl/Cmd+Enter   run the code (it also
 Ctrl/Cmd+E       hide/show the code
 h                hide/show this help
 
+▸ SAVE & SHARE
+  the code that runs is kept in the page link:
+  reload = same piece · 'share' copies the link
+
 ▸ YOUR CODE HAS TWO PARTS
   init()   runs once each time you run
            → create beams here
@@ -188,6 +192,48 @@ function runCode(code) {
     console.error('[editor]', e);
   }
   flashLines(code, !_err);
+  if (!_err) _saveToUrl(code);
+}
+
+// ---------- THE PIECE IN THE URL ----------
+// After every run that works, the code is kept in the address (#z=…, compressed),
+// so reloading the page or sharing the link brings the piece back exactly.
+// The demo code leaves the address clean.
+const _b64u = {
+  enc(b) {
+    let s = '';
+    for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000));
+    return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  },
+  dec(s) {
+    s = s.replace(/-/g, '+').replace(/_/g, '/');
+    while (s.length % 4) s += '=';
+    return Uint8Array.from(atob(s), c => c.charCodeAt(0));
+  },
+};
+const _zip = (bytes, Stream) =>
+  new Response(new Blob([bytes]).stream().pipeThrough(new Stream('deflate-raw'))).arrayBuffer().then(b => new Uint8Array(b));
+async function _packCode(code) {
+  const bytes = new TextEncoder().encode(code);
+  if (typeof CompressionStream === 'function') return 'z=' + _b64u.enc(await _zip(bytes, CompressionStream));
+  return 'c=' + _b64u.enc(bytes);                       // old browsers: not compressed
+}
+async function _unpackCode(hash) {
+  const m = /^#?([zc])=(.+)$/.exec(hash || '');
+  if (!m) return null;
+  let bytes = _b64u.dec(m[2]);
+  if (m[1] === 'z') bytes = await _zip(bytes, DecompressionStream);
+  return new TextDecoder().decode(bytes);
+}
+let _urlSeq = 0, _urlHash = '';
+function _saveToUrl(code) {
+  const n = ++_urlSeq;
+  if (code === DEMO_CODE) { _urlHash = ''; history.replaceState(null, '', location.pathname + location.search); return; }
+  _packCode(code).then(h => {
+    if (n !== _urlSeq) return;                          // a newer run already saved
+    _urlHash = '#' + h;
+    history.replaceState(null, '', _urlHash);           // no new history entry per run
+  }).catch(e => console.warn('[editor] could not save the code in the URL', e));
 }
 
 // ---------- FLASH OF THE LINES THAT RAN ----------
@@ -389,6 +435,15 @@ function setup() {
   _bpmBtn.title = 'tempo (detected from the music). Click on every beat to tap it by hand';
   _autoBtn = mkBtn('auto', () => bpm('auto'));
   _autoBtn.title = 'listen to the music and follow its tempo';
+  // share: copy the link of the piece that is running (its code is in the URL)
+  const shareBtn = mkBtn('share', async () => {
+    try {
+      await navigator.clipboard.writeText(location.href);
+      shareBtn.textContent = 'link copied ✓';
+    } catch (e) { shareBtn.textContent = 'copy the address bar'; }
+    setTimeout(() => (shareBtn.textContent = 'share'), 1500);
+  });
+  shareBtn.title = 'copy a link to this piece (the code travels inside the link)';
   mkBtn('github', () => window.open('https://github.com/danieljulia/LissaLoop', '_blank'));
 
   function toggleEditor() {
@@ -398,7 +453,18 @@ function setup() {
     if (!hidden) _ta.blur();
   }
 
-  runCode(DEMO_CODE);
+  // open the piece saved in the URL, if any (otherwise the demo)
+  const loadUrl = () => _unpackCode(location.hash).then(code => {
+    if (code != null) { _ta.value = code; updateGutter(); if (_scr) _scr.background(0); }
+    runCode(_ta.value);
+  }).catch(e => {
+    console.warn('[editor] could not read the code in the URL', e);
+    runCode(_ta.value);
+    _warn = 'the link has no valid code: showing the demo'; // yellow note under the code
+  });
+  loadUrl();
+  // a pasted link in the same tab only changes the hash: load that piece
+  window.addEventListener('hashchange', () => { if (location.hash !== _urlHash) loadUrl(); });
 }
 
 function toggleHelp() {
