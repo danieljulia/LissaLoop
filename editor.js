@@ -170,6 +170,7 @@ let _autoBtn = null;
 function runCode(code) {
   try {
     _newRun(); // beams of this run reuse the ones of the last run
+    _warn = null;
     (0, eval)(code); // indirect eval → global scope
     _err = null;
     if (typeof init === 'function') init();
@@ -430,6 +431,10 @@ function draw() {
     fill(255, 90, 90); noStroke();
     textAlign(LEFT, BOTTOM); textSize(16); textFont('monospace');
     text('error: ' + err, 12, height - 34); // above the hint
+  } else if (_warn) {
+    fill(255, 200, 90); noStroke();
+    textAlign(LEFT, BOTTOM); textSize(16); textFont('monospace');
+    text('warning: ' + _warn, 12, height - 34);
   }
   if (!_au) {
     fill(255); noStroke();

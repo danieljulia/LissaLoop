@@ -230,6 +230,7 @@ const _PROPS = ['size', 'x', 'y', 'sx', 'sy', 'rot', 'spin', 'width', 'glow', 'h
   'alpha', 'a', 'b', 'ph', 'drift', 'fuzz', 'wob', 'gain', 'd', 'pts', 'echo', 'scale', 'turn'];
 const _isInt = x => Math.abs(x - Math.round(x)) < 0.001;
 let _lastBeam = null;
+let _warn = null; // last warning of the library (reset on every run)
 
 class Beam {
   constructor() {
@@ -303,7 +304,15 @@ class Beam {
   // r(prop, signal, x)        multiply: ×1 in silence → ×x at full signal (hue: + x degrees)
   // r(prop, signal, min, max) range: min in silence → max at full signal
   r(prop, fn, a, b) {
-    if (!_PROPS.includes(prop)) { console.warn('[lissaloop] r(): unknown prop', prop); return this; }
+    if (!_PROPS.includes(prop)) {
+      // shown on screen by the editor (the code keeps running)
+      const fig = { lissa: 'a, b', rose: 'a (petals), b', poly: 'a (corners), b (step)', ring: 'gain', wave: 'gain', xy: 'gain, d', phase: 'ph' }[prop];
+      _warn = fig
+        ? `r('${prop}'): the numbers of .${prop}() are ${fig} → .r('${fig.split(/[ ,]/)[0]}', ...)`
+        : `r('${prop}'): unknown setting. Use: ${_PROPS.join(' ')}`;
+      console.warn('[lissaloop]', _warn);
+      return this;
+    }
     if (this._rxAuto) { this._rx = []; this._rxAuto = false; }
     this._rx.push({ prop, fn, a: _num(a, 1), b: b === undefined ? undefined : _num(b, 0) });
     return this;
