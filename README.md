@@ -80,6 +80,7 @@ figure **morphs** from the old one instead of jumping.
 | `.poly(n, m)` | star polygon {n/m}. The beam slows at the corners, so vertices glow |
 | `.ring(gain)` | a circle bent by the sound wave |
 | `.wave(gain)` | the classic scope: the sound wave, with trigger so tones stand still |
+| `.raw()` | with `wave`, `ring` or `xy`: the sound exactly as it comes. Real volume (no automatic gain, so quiet music draws small and ±1 is full scale) and, for `wave`, no trigger and the whole buffer (~23 ms), so it rolls like the raw signal |
 | `.xy(gain, d)` | X-Y mode: the wave against itself `d` samples later. Without `d`, the delay is a quarter period of the main note, so a pure tone is a circle and every harmonic adds a loop |
 | `.fn(t => [x, y])` | your own figure, `t` from 0 to TAU (2nd argument: 0..1). The 3rd argument has this frame's settings: `.fn((t, u, p) => [sin(p.a * t), tan(p.b * t)]).r('a', bass, 8, 32)` |
 

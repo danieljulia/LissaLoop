@@ -352,10 +352,18 @@ function soundMeter(x = 12, y = 12, w = 130, h = 60) {
 
 // ---------- WAVEFORM ----------
 // the raw sound wave (-1..1), read once per frame. In silence it is flat.
+// Read as floats straight from the analyser: p5's fft.waveform() uses 8-bit
+// bytes (256 levels), so a moderate signal only takes a few levels and the
+// wave is drawn as a staircase (worse once the automatic gain blows it up).
 let _wvFrame = -1, _wv = new Float32Array(1024);
 function _wave() {
   if (!_au) return _wv;
-  if (frameCount !== _wvFrame) { _wvFrame = frameCount; _wv = Float32Array.from(_au.fft.waveform()); }
+  if (frameCount !== _wvFrame) {
+    _wvFrame = frameCount;
+    const an = _au.fft.analyser;
+    if (_wv.length !== an.frequencyBinCount) _wv = new Float32Array(an.frequencyBinCount); // 1024 ≈ 23 ms, as before
+    an.getFloatTimeDomainData(_wv);
+  }
   return _wv;
 }
 // wav(t): the wave at t (0..1 along the last ~23 ms of sound), for your own .fn() figures

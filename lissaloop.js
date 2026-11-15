@@ -14,6 +14,7 @@
      b.ring()                    // a circle bent by the sound wave
      b.wave()                    // classic scope: the sound wave, with trigger
      b.xy()                      // X-Y mode: the wave against itself, delayed
+     b.wave().raw()              // the wave as it comes: real volume, no trigger
      b.fn(t => [sin(3*t), cos(2*t)]) // your own figure, t = 0..TAU
      b.fn((t, u, p) => [sin(p.a*t), cos(p.b*t)]).r('a', bass, 2, 8) // p = settings
    Look and motion (everything chainable, numbers or signals):
@@ -258,7 +259,7 @@ class Beam {
     };
     this.col(this._roll.col);
     this._mode = 'lissa'; this._form = 'sin'; this._fn = null;
-    this._dots = false; this._glide = 0.9;
+    this._dots = false; this._glide = 0.9; this._raw = false;
     this._rx = [{ prop: 'size', fn: bass, a: 1.3 }]; // until your first r()
     this._rxAuto = true;
     _lastBeam = this;
@@ -275,6 +276,9 @@ class Beam {
   wave(gain = 1)  { this._mode = 'wave'; this._p.gain = gain; return this; }
   xy(gain = 1, d = null) { this._mode = 'xy'; this._p.gain = gain; this._p.d = d; return this; }
   fn(f) { if (typeof f === 'function') { this._mode = 'fn'; this._fn = f; } return this; }
+  // wave / ring / xy with the sound exactly as it comes: real volume (no automatic
+  // gain: quiet music draws small) and, for wave(), no trigger and the whole buffer
+  raw(on = true) { this._raw = on; return this; }
   form(f) { if (_FORMS[f]) this._form = f; return this; }
 
   // --- look and motion ---
@@ -382,7 +386,7 @@ class Beam {
         break;
       }
       case 'ring': {
-        const W = _waveN();
+        const W = this._raw ? _wave() : _waveN();
         closed = false;
         for (let i = 0; i < N; i++) {
           const u = i / (N - 1), r = 1 + 0.4 * v.gain * _samp(W, u), th = TAU * u + ph;
@@ -391,11 +395,14 @@ class Beam {
         break;
       }
       case 'wave': {
-        const W = _waveN(), asp = width / Math.min(width, height) / Math.max(0.05, Math.abs(v.size));
+        // raw: the whole buffer (~23 ms) as it arrives, real amplitude (±1 = full scale),
+        // no trigger (it rolls). Otherwise: 512 samples from the trigger, automatic gain
+        const W = this._raw ? _wave() : _waveN(), k = this._raw ? 1 : 0.8;
+        const asp = width / Math.min(width, height) / Math.max(0.05, Math.abs(v.size));
         closed = false;
         for (let i = 0; i < N; i++) {
           const u = i / (N - 1);
-          U[2 * i] = (2 * u - 1) * asp; U[2 * i + 1] = 0.8 * v.gain * _samp(W, u);
+          U[2 * i] = (2 * u - 1) * asp; U[2 * i + 1] = k * v.gain * _samp(W, u);
         }
         break;
       }
@@ -405,7 +412,7 @@ class Beam {
         const d = this._p.d == null
           ? _clamp(Math.round(getAudioContext().sampleRate / hz() / 4), 1, 300) // quarter period → a circle
           : _clamp(Math.round(v.d), 1, 300);
-        const L = w.length - d - 1, g = (0.8 * v.gain) / _wpk;
+        const L = w.length - d - 1, g = this._raw ? v.gain : (0.8 * v.gain) / _wpk;
         closed = false;
         for (let i = 0; i < N; i++) {
           const x = (i / (N - 1)) * (L - 1), j = Math.floor(x), f = x - j;
