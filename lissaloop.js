@@ -70,7 +70,9 @@ function grid(a = 0.3) { _grid = a; }
 function crt(a = 0.5) { if (a !== _crt) _crtL = null; _crt = a; }
 
 function _screen() {
-  if (typeof width === 'undefined') return null;
+  // no size yet (hidden tab, window still opening): skip the frame instead of
+  // making a 0×0 layer, which makes drawImage throw and stops the draw loop
+  if (typeof width === 'undefined' || width < 1 || height < 1) return null;
   if (!_scr || _scr.width !== width || _scr.height !== height) {
     if (_scr) _scr.remove();
     _scr = createGraphics(width, height);
