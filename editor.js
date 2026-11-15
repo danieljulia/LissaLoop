@@ -332,6 +332,7 @@ function setup() {
   _bpmBtn.title = 'tempo (detected from the music). Click on every beat to tap it by hand';
   _autoBtn = mkBtn('auto', () => bpm('auto'));
   _autoBtn.title = 'listen to the music and follow its tempo';
+  mkBtn('github', () => window.open('https://github.com/danieljulia/LissaLoop', '_blank'));
 
   function toggleEditor() {
     const hidden = wrap.style.display === 'none';

@@ -5,6 +5,8 @@ tempo of the music, built on [p5.js](https://p5js.org) + p5.sound. It is the sis
 [flocks.js](https://github.com/danieljulia/flocks): same editor, same sound signals, same way of
 working: type a little, the figure changes right away without a restart.
 
+Code: <https://github.com/danieljulia/LissaLoop>
+
 A *beam* is a point of light that draws a figure many times per second and leaves a glow on the
 phosphor of the screen. Like on a real tube, the beam is brighter where it moves slowly (corners,
 turning points) and fainter where it jumps.
