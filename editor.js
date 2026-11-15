@@ -63,6 +63,9 @@ h                hide/show this help
   .xy(1)               X-Y: the wave vs itself delayed
                        (.xy(1, 20) = 20 samples delay)
   .fn(t => [sin(3*t), cos(2*t)])   your own, t 0..TAU
+  .fn((t, u, p) => [sin(p.a*t), cos(p.b*t)])
+                       p.a p.b … = settings, so
+                       .r('a', bass, 2, 8) works
   .form('tri')         lissa waves: sin tri sqr saw
 
 ▸ LOOK & MOTION  (numbers or signals)
@@ -79,6 +82,9 @@ h                hide/show this help
   .echo(4, 0.8, 0.05)  copies: n, scale, turn
   .dots()              dots instead of a line
   .pts(900)            points of the figure
+  .loops(2)            times the figure is traced:
+                       3.5:2 closes with 2 · < 1 = a part
+                       .r('loops', bass, 0.1, 1) grows
   .glide(0.9)          changes arrive smoothly
 
 ▸ SOUND  (signals 0..1)
@@ -95,7 +101,7 @@ h                hide/show this help
   .r('a', pitch, 1, 6)     range: 1 → 6
   .r('hue', mid, 120, 200) color: hue sat bri alpha
      also: x y sx sy rot spin width glow a b
-     phase→ph drift fuzz wob gain echo scale turn
+     phase→ph drift fuzz wob gain echo scale turn loops
   .calm()              no reactions (a new beam
                        pulses with the bass until
                        your first .r())

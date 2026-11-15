@@ -81,7 +81,7 @@ figure **morphs** from the old one instead of jumping.
 | `.ring(gain)` | a circle bent by the sound wave |
 | `.wave(gain)` | the classic scope: the sound wave, with trigger so tones stand still |
 | `.xy(gain, d)` | X-Y mode: the wave against itself `d` samples later. Without `d`, the delay is a quarter period of the main note, so a pure tone is a circle and every harmonic adds a loop |
-| `.fn(t => [x, y])` | your own figure, `t` from 0 to TAU (2nd argument: 0..1) |
+| `.fn(t => [x, y])` | your own figure, `t` from 0 to TAU (2nd argument: 0..1). The 3rd argument has this frame's settings: `.fn((t, u, p) => [sin(p.a * t), tan(p.b * t)]).r('a', bass, 8, 32)` |
 
 Ratios can glide: `.r('a', lfo(16), 1, 4)` passes through every figure between 1:b and 4:b.
 
@@ -99,6 +99,7 @@ Ratios can glide: `.r('a', lfo(16), 1, 4)` passes through every figure between 1
 | `.fuzz(x)` | noise on the beam |
 | `.echo(n, scale, turn)` | copies of the figure, smaller and turned |
 | `.dots()` | dots instead of a line |
+| `.loops(n)` | how many times the figure is traced (lissa, rose, poly, fn). `.lissa(3.5, 2).loops(2)` closes a fractional ratio; below 1 only a part is drawn: `.r('loops', bass, 0.1, 1)` writes the figure with the bass. Points grow with the loops |
 | `.pts(n)` `.glide(g)` | points of the figure · how smoothly changes arrive |
 
 Every setting can be a number or a signal.
@@ -121,7 +122,7 @@ The same signals as flocks.js (normalized 0..1, adaptive noise gate): `bass` `mi
 | `.calm()` | no reactions. A new beam pulses with the bass until your first `.r()` |
 
 Props for `r()`: `size x y sx sy rot spin width glow hue sat bri alpha a b ph drift fuzz wob gain d
-pts echo scale turn`.
+pts echo scale turn loops`.
 
 ### Screen
 

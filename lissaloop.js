@@ -15,6 +15,7 @@
      b.wave()                    // classic scope: the sound wave, with trigger
      b.xy()                      // X-Y mode: the wave against itself, delayed
      b.fn(t => [sin(3*t), cos(2*t)]) // your own figure, t = 0..TAU
+     b.fn((t, u, p) => [sin(p.a*t), cos(p.b*t)]).r('a', bass, 2, 8) // p = settings
    Look and motion (everything chainable, numbers or signals):
      b.size(0.6).at(0, 0)        // size (1 = fills the screen) · center (-1..1)
      b.stretch(1.5, 1)           // stretch x, y
@@ -25,6 +26,7 @@
      b.wob(0.3)                  // the sound wave shakes the figure
      b.fuzz(0.2)                 // noise on the beam
      b.echo(4, 0.8, 0.05)        // copies: how many, scale, turn
+     b.loops(2)                  // trace the figure twice (0.5 = only half of it)
      b.dots()                    // draw dots instead of a line
      b.r('size', bass, 1.5)      // sound reactions, like flocks.js
    Screen: trail(0.1) · grid(0.3) · crt(0.5)
@@ -227,7 +229,7 @@ const _FORMS = {
   saw: t => { const x = t / TAU; return 2 * (x - Math.floor(x + 0.5)); },
 };
 const _PROPS = ['size', 'x', 'y', 'sx', 'sy', 'rot', 'spin', 'width', 'glow', 'hue', 'sat', 'bri',
-  'alpha', 'a', 'b', 'ph', 'drift', 'fuzz', 'wob', 'gain', 'd', 'pts', 'echo', 'scale', 'turn'];
+  'alpha', 'a', 'b', 'ph', 'drift', 'fuzz', 'wob', 'gain', 'd', 'pts', 'echo', 'scale', 'turn', 'loops'];
 const _isInt = x => Math.abs(x - Math.round(x)) < 0.001;
 let _lastBeam = null;
 let _warn = null; // last warning of the library (reset on every run)
@@ -252,7 +254,7 @@ class Beam {
     this._p = {
       size: 0.6, x: 0, y: 0, sx: 1, sy: 1, rot: 0, spin: 0, width: 1.6, glow: 0.7,
       a: this._roll.a, b: this._roll.b, ph: 0.25, drift: 0.05, fuzz: 0, wob: 0,
-      gain: 1, d: null, pts: 900, echo: 0, scale: 0.8, turn: 0,
+      gain: 1, d: null, pts: 900, echo: 0, scale: 0.8, turn: 0, loops: 1,
     };
     this.col(this._roll.col);
     this._mode = 'lissa'; this._form = 'sin'; this._fn = null;
@@ -289,6 +291,7 @@ class Beam {
   wob(w)          { return this._set('wob', w); }
   gain(g)         { return this._set('gain', g); }
   pts(n)          { return this._set('pts', n); }
+  loops(n)        { return this._set('loops', n); } // how many times the figure is traced (< 1 = only a part)
   echo(n = 3, scale = 0.8, turn = 0) { this._p.echo = n; this._p.scale = scale; this._p.turn = turn; return this; }
   dots(on = true) { this._dots = on; return this; }
   glide(g)        { this._glide = _clamp(_num(g, 0.9), 0, 0.99); return this; }
@@ -337,30 +340,39 @@ class Beam {
   // the figure in unit space (-1..1), N points → Float32Array [x0, y0, x1, y1, ...]
   _shape(N, v) {
     const U = new Float32Array(2 * N), ph = TAU * (v.ph + this._dph);
+    // loops: how many times t goes round (lissa, rose, poly, fn). A whole number of
+    // loops can close the figure (the last point joins the first); otherwise the
+    // path is open and its last point lands exactly at the end of the last loop
+    const Lp = Math.max(0.001, v.loops);
+    const cyc = (canClose) => (canClose ? N : N - 1);
     let closed = true;
     switch (this._mode) {
       case 'lissa': {
         const F = _FORMS[this._form], a = v.a, b = v.b;
-        closed = _isInt(a) && _isInt(b);
+        closed = _isInt(a * Lp) && _isInt(b * Lp) && Lp >= 0.999; // back at the start
+        const den = cyc(closed);
         for (let i = 0; i < N; i++) {
-          const th = (TAU * i) / N;
+          const th = (TAU * Lp * i) / den;
           U[2 * i] = F(a * th + ph); U[2 * i + 1] = F(b * th);
         }
         break;
       }
       case 'rose': {
-        const d = Math.max(1, Math.round(v.b)), k = v.a / d, T = TAU * d;
-        closed = _isInt(v.a);
+        const d = Math.max(1, Math.round(v.b)), k = v.a / d, T = TAU * d * Lp;
+        closed = _isInt(v.a) && _isInt(Lp);
+        const den = cyc(closed);
         for (let i = 0; i < N; i++) {
-          const th = (T * i) / N, r = Math.cos(k * th + ph);
+          const th = (T * i) / den, r = Math.cos(k * th + ph);
           U[2 * i] = r * Math.cos(th); U[2 * i + 1] = r * Math.sin(th);
         }
         break;
       }
       case 'poly': {
         const n = Math.max(2, Math.round(v.a)), m = Math.max(1, Math.round(v.b));
+        closed = _isInt(Lp);
+        const den = cyc(closed);
         for (let i = 0; i < N; i++) {
-          const t = (i / N) * n, e = Math.floor(t);
+          const t = (i / den) * n * Lp, e = Math.floor(t);
           let f = t - e;
           f = f * f * (3 - 2 * f); // the beam slows down at the corners → bright vertices
           const a0 = ph + (TAU * e * m) / n, a1 = ph + (TAU * (e + 1) * m) / n;
@@ -403,8 +415,10 @@ class Beam {
         break;
       }
       case 'fn': {
+        closed = _isInt(Lp);
+        const den = cyc(closed);
         for (let i = 0; i < N; i++) {
-          const p = this._fn((TAU * i) / N, i / N) || [0, 0];
+          const p = this._fn((TAU * Lp * i) / den, i / den, v) || [0, 0]; // v: this frame's settings (v.a, v.b, ...)
           U[2 * i] = _num(p[0], 0); U[2 * i + 1] = _num(p[1], 0);
         }
         break;
@@ -427,7 +441,8 @@ class Beam {
     this._ang += (v.spin * db) / 4;
     this._dph += (v.drift * db) / 4;
 
-    const N = _clamp(Math.round(v.pts), 16, 4000);
+    // more loops = a longer path: the points grow with it so the line stays smooth
+    const N = _clamp(Math.round(v.pts * Math.max(1, v.loops)), 16, 6000);
     const U = this._shape(N, v);
 
     // a new figure doesn't jump: it morphs from the last one
