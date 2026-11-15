@@ -58,8 +58,9 @@ h                hide/show this help
   b.draw()             inside live()
 
 ▸ FIGURES  (a new one morphs from the old)
-  .lissa(3, 2)         Lissajous x:y (phase: 3rd arg,
-                       in turns; 0.25 = round)
+  .lissa(3, 2)         Lissajous x:y (.phase(0.25)
+                       = round, in turns)
+  .lissa(3, 2, 5)      3D: depth turns 5 times
   .rose(5)             flower · .rose(5, 3) = 5/3
   .poly(5, 2)          star {5/2} · .poly(4) square
   .ring(1)             circle bent by the sound wave
@@ -94,6 +95,15 @@ h                hide/show this help
                        .r('loops', bass, 0.1, 1) grows
   .glide(0.9)          changes arrive smoothly
 
+▸ 3D  (any figure can turn in space)
+  .lissa(3, 2, 5)      3D Lissajous (tilted, orbiting)
+  .fn(t => [x, y, z])  your own 3D figure
+  .tilt(0.1)           lean towards you (turns)
+  .orbit(0.25)         keep turning (turns per bar)
+  .yaw(0.1)            turn around vertical (turns)
+  .persp(1)            perspective 0 flat … 2 strong
+     the far side is dimmer · r(): c tilt yaw orbit persp
+
 ▸ SOUND  (signals 0..1)
   bass() mid() treble() amp()
   beat()               pulse on every bass hit
@@ -109,6 +119,7 @@ h                hide/show this help
   .r('hue', mid, 120, 200) color: hue sat bri alpha
      also: x y sx sy rot spin width glow a b
      phase→ph drift fuzz wob gain echo scale turn loops
+     c tilt yaw orbit persp
   .calm()              no reactions (a new beam
                        pulses with the bass until
                        your first .r())
@@ -136,7 +147,7 @@ const _HL_LIB = new Set(['beam','bass','mid','treble','amp','beat','onset','pitc
   'bpm','tap','phase','bar','tick','lfo','tempo','PI','TAU','HALF_PI','QUARTER_PI','sin','cos','tan','abs','min','max',
   'map','constrain','frameCount','floor','round','sqrt','pow']);
 const _HL_METHODS = new Set(['lissa','rose','poly','ring','wave','xy','fn','form','size','at','stretch',
-  'rot','spin','drift','phase','width','glow','fuzz','wob','gain','pts','echo','dots','glide','col','r','calm','draw','smooth','beat','loops','raw']);
+  'rot','spin','drift','phase','width','glow','fuzz','wob','gain','pts','echo','dots','glide','col','r','calm','draw','smooth','beat','loops','raw','tilt','yaw','orbit','persp']);
 const _hlEsc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 function highlight(code) {
   const re = /(\/\/[^\n]*|\/\*[\s\S]*?(?:\*\/|$))|("(?:\\.|[^"\\\n])*"?|'(?:\\.|[^'\\\n])*'?|`(?:\\.|[^`\\])*`?)|(\b\d+\.?\d*\b|\B\.\d+\b)|([A-Za-z_$][\w$]*)|([\s\S])/g;

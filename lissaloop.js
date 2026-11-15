@@ -8,7 +8,9 @@
      b = beam()                  // a beam with a random Lissajous figure and color
      b.draw()                    // inside live()
    Figures (choose one):
-     b.lissa(3, 2)               // Lissajous x:y = 3:2 (phase in turns: .lissa(3, 2, 0.25))
+     b.lissa(3, 2)               // Lissajous x:y = 3:2 (phase in turns: .phase(0.25))
+     b.lissa(3, 2, 5)            // 3D Lissajous: z turns 5 times, seen orbiting
+     b.tilt(0.1).orbit(0.25)     // 3D view: lean towards you · keep turning (turns per bar)
      b.rose(5)                   // flower with 5 petals (.rose(5, 3) = 5/3)
      b.poly(5, 2)                // star polygon {5/2} (.poly(4) = square)
      b.ring()                    // a circle bent by the sound wave
@@ -174,7 +176,7 @@ function _samp(W, u) {
 // few brightness levels, and each level is stroked 3 times: wide faint halo,
 // narrow halo, and a whitish core.
 const _LV = 5;
-function _render(ctx, P, n, closed, rgb, alpha, w, glow, dots) {
+function _render(ctx, P, n, closed, rgb, alpha, w, glow, dots, D) {
   if (alpha <= 0.002 || n < 2) return;
   const segs = closed ? n : n - 1;
   let tot = 0;
@@ -190,7 +192,8 @@ function _render(ctx, P, n, closed, rgb, alpha, w, glow, dots) {
     const j = (i + 1) % n;
     const x0 = P[2 * i], y0 = P[2 * i + 1], x1 = P[2 * j], y1 = P[2 * j + 1];
     const L = Math.hypot(x1 - x0, y1 - y0);
-    const b = _clamp(Math.pow(ref / (L + 0.001), 0.6), 0.04, 1);
+    let b = _clamp(Math.pow(ref / (L + 0.001), 0.6), 0.04, 1);
+    if (D) b *= (D[i] + D[j]) / 2;          // 3D: the far side is dimmer
     const lv = Math.min(_LV - 1, Math.floor(b * _LV));
     const p = paths[lv];
     if (dots) { p.moveTo(x0 + w, y0); p.arc(x0, y0, w, 0, TAU); continue; }
@@ -230,7 +233,7 @@ const _FORMS = {
   saw: t => { const x = t / TAU; return 2 * (x - Math.floor(x + 0.5)); },
 };
 const _PROPS = ['size', 'x', 'y', 'sx', 'sy', 'rot', 'spin', 'width', 'glow', 'hue', 'sat', 'bri',
-  'alpha', 'a', 'b', 'ph', 'drift', 'fuzz', 'wob', 'gain', 'd', 'pts', 'echo', 'scale', 'turn', 'loops'];
+  'alpha', 'a', 'b', 'ph', 'drift', 'fuzz', 'wob', 'gain', 'd', 'pts', 'echo', 'scale', 'turn', 'loops', 'c', 'yaw', 'tilt', 'orbit', 'persp'];
 const _isInt = x => Math.abs(x - Math.round(x)) < 0.001;
 let _lastBeam = null;
 let _warn = null; // last warning of the library (reset on every run)
@@ -247,6 +250,8 @@ class Beam {
     this._lastB = null;     // beat count of the last frame
     this._last = null;      // last figure (for morphing)
     this._snap = null; this._m = 0; this._drawn = null;
+    this._orb = 0;          // 3D turn made by orbit()
+    this._Z = null; this._lastZ = null; this._snapZ = null; // depth of the figure (3D)
     this._reset();
   }
 
@@ -256,6 +261,7 @@ class Beam {
       size: 0.6, x: 0, y: 0, sx: 1, sy: 1, rot: 0, spin: 0, width: 1.6, glow: 0.7,
       a: this._roll.a, b: this._roll.b, ph: 0.25, drift: 0.05, fuzz: 0, wob: 0,
       gain: 1, d: null, pts: 900, echo: 0, scale: 0.8, turn: 0, loops: 1,
+      c: null, yaw: 0, tilt: 0, orbit: 0, persp: 1,
     };
     this.col(this._roll.col);
     this._mode = 'lissa'; this._form = 'sin'; this._fn = null;
@@ -269,7 +275,13 @@ class Beam {
   _set(k, v) { this._p[k] = v; return this; }
 
   // --- figures ---
-  lissa(a = 3, b = 2, ph = 0.25) { this._mode = 'lissa'; this._p.a = a; this._p.b = b; this._p.ph = ph; return this; }
+  // lissa(a, b) is flat; lissa(a, b, c) adds depth z = cos(c·t) and is seen from
+  // a slightly tilted, slowly orbiting camera (change it after: .tilt() .orbit())
+  lissa(a = 3, b = 2, c = null) {
+    this._mode = 'lissa'; this._p.a = a; this._p.b = b; this._p.ph = 0.25; this._p.c = c;
+    if (c != null) { this._p.tilt = 0.08; this._p.orbit = 0.25; }
+    return this;
+  }
   rose(n = 5, d = 1, ph = 0)     { this._mode = 'rose';  this._p.a = n; this._p.b = d; this._p.ph = ph; return this; }
   poly(n = 5, m = 1, ph = 0.25)  { this._mode = 'poly';  this._p.a = n; this._p.b = m; this._p.ph = ph; return this; }
   ring(gain = 1)  { this._mode = 'ring'; this._p.gain = gain; this._p.ph = 0; return this; }
@@ -296,6 +308,11 @@ class Beam {
   gain(g)         { return this._set('gain', g); }
   pts(n)          { return this._set('pts', n); }
   loops(n)        { return this._set('loops', n); } // how many times the figure is traced (< 1 = only a part)
+  // --- 3D (any figure can turn in space; lissa(a, b, c) and fn → [x, y, z] have depth) ---
+  tilt(t)         { return this._set('tilt', t); }   // lean towards you, in turns (0.25 = seen from above)
+  yaw(y)          { return this._set('yaw', y); }    // turn around the vertical axis, in turns
+  orbit(o)        { return this._set('orbit', o); }  // keep turning around the vertical axis, turns per bar
+  persp(p)        { return this._set('persp', p); }  // perspective: 0 flat … 1 normal … 2 strong
   echo(n = 3, scale = 0.8, turn = 0) { this._p.echo = n; this._p.scale = scale; this._p.turn = turn; return this; }
   dots(on = true) { this._dots = on; return this; }
   glide(g)        { this._glide = _clamp(_num(g, 0.9), 0, 0.99); return this; }
@@ -350,14 +367,17 @@ class Beam {
     const Lp = Math.max(0.001, v.loops);
     const cyc = (canClose) => (canClose ? N : N - 1);
     let closed = true;
+    this._Z = null;
     switch (this._mode) {
       case 'lissa': {
-        const F = _FORMS[this._form], a = v.a, b = v.b;
-        closed = _isInt(a * Lp) && _isInt(b * Lp) && Lp >= 0.999; // back at the start
+        const F = _FORMS[this._form], a = v.a, b = v.b, c3 = this._p.c != null ? v.c : null;
+        closed = _isInt(a * Lp) && _isInt(b * Lp) && (c3 === null || _isInt(c3 * Lp)) && Lp >= 0.999; // back at the start
         const den = cyc(closed);
+        const Z = c3 === null ? null : (this._Z = new Float32Array(N));
         for (let i = 0; i < N; i++) {
           const th = (TAU * Lp * i) / den;
           U[2 * i] = F(a * th + ph); U[2 * i + 1] = F(b * th);
+          if (Z) Z[i] = F(c3 * th + Math.PI / 2);
         }
         break;
       }
@@ -427,6 +447,7 @@ class Beam {
         for (let i = 0; i < N; i++) {
           const p = this._fn((TAU * Lp * i) / den, i / den, v) || [0, 0]; // v: this frame's settings (v.a, v.b, ...)
           U[2 * i] = _num(p[0], 0); U[2 * i + 1] = _num(p[1], 0);
+          if (p.length > 2) { if (!this._Z) this._Z = new Float32Array(N); this._Z[i] = _num(p[2], 0); } // [x, y, z]
         }
         break;
       }
@@ -447,6 +468,7 @@ class Beam {
     this._lastB = nb;
     this._ang += (v.spin * db) / 4;
     this._dph += (v.drift * db) / 4;
+    this._orb += (v.orbit * db) / 4;
 
     // more loops = a longer path: the points grow with it so the line stays smooth
     const N = _clamp(Math.round(v.pts * Math.max(1, v.loops)), 16, 6000);
@@ -454,19 +476,24 @@ class Beam {
 
     // a new figure doesn't jump: it morphs from the last one
     const key = this._mode + ':' + this._form + ':' + (this._fn ? String(this._fn) : '');
-    if (this._drawn !== null && key !== this._drawn && this._last) { this._snap = this._last; this._m = 1; }
+    if (this._drawn !== null && key !== this._drawn && this._last) { this._snap = this._last; this._snapZ = this._lastZ; this._m = 1; }
     this._drawn = key;
     if (this._m > 0.002 && this._snap) {
       const e = this._m * this._m * (3 - 2 * this._m), S = this._snap, M = S.length / 2;
+      const SZ = this._snapZ;
+      if (SZ && !this._Z) this._Z = new Float32Array(N);  // 3D → flat: the depth melts away
+      const Zm = this._Z;
       for (let i = 0; i < N; i++) {
         const j = Math.min(M - 1, Math.floor((i * M) / N));
         U[2 * i] += (S[2 * j] - U[2 * i]) * e;
         U[2 * i + 1] += (S[2 * j + 1] - U[2 * i + 1]) * e;
+        if (Zm) Zm[i] += ((SZ && j < SZ.length ? SZ[j] : 0) - Zm[i]) * e;
       }
       this._m *= _clamp(this._glide, 0.8, 0.96);
       this._closed = false;
     } else this._snap = null;
     this._last = U.slice();
+    this._lastZ = this._Z ? this._Z.slice() : null;
 
     // sound and noise on top of the figure
     if (v.wob) {
@@ -474,9 +501,36 @@ class Beam {
       for (let i = 0; i < N; i++) {
         const k = 1 + 0.5 * v.wob * _samp(W, i / N);
         U[2 * i] *= k; U[2 * i + 1] *= k;
+        if (this._Z) this._Z[i] *= k;
       }
     }
-    if (v.fuzz) for (let i = 0; i < 2 * N; i++) U[i] += (Math.random() - 0.5) * 0.06 * v.fuzz;
+    if (v.fuzz) {
+      for (let i = 0; i < 2 * N; i++) U[i] += (Math.random() - 0.5) * 0.06 * v.fuzz;
+      if (this._Z) for (let i = 0; i < N; i++) this._Z[i] += (Math.random() - 0.5) * 0.06 * v.fuzz;
+    }
+
+    // 3D: turn the figure in space (yaw + orbit around the vertical axis, then tilt
+    // towards you) and project it with perspective. The near side is bigger and
+    // brighter. Flat figures skip all this unless you turn them
+    const Z = this._Z;
+    const X = new Float32Array(N), Y = new Float32Array(N);
+    let D = null;
+    if (Z || v.tilt || v.yaw || v.orbit || this._orb % 1) {
+      const A = TAU * (v.yaw + this._orb), B = TAU * v.tilt;
+      const ca = Math.cos(A), sa = Math.sin(A), cb = Math.cos(B), sb = Math.sin(B);
+      const k = _clamp(v.persp, 0, 3), dist = k > 0 ? 3 / k : 0;
+      D = new Float32Array(N);
+      for (let i = 0; i < N; i++) {
+        const x = U[2 * i] * v.sx, y = U[2 * i + 1] * v.sy, z = Z ? Z[i] : 0;
+        const x1 = x * ca + z * sa, z1 = -x * sa + z * ca;
+        const y1 = y * cb - z1 * sb, z2 = y * sb + z1 * cb;   // z2 > 0: towards you
+        const f = dist ? dist / Math.max(0.3, dist - z2) : 1;
+        X[i] = x1 * f; Y[i] = y1 * f;
+        D[i] = _clamp(0.55 + 0.35 * z2, 0.15, 1);
+      }
+    } else {
+      for (let i = 0; i < N; i++) { X[i] = U[2 * i] * v.sx; Y[i] = U[2 * i + 1] * v.sy; }
+    }
 
     const R = (v.size * Math.min(width, height)) / 2;
     const cx = (width / 2) * (1 + v.x), cy = (height / 2) * (1 - v.y);
@@ -488,11 +542,11 @@ class Beam {
       const s = R * Math.pow(v.scale, e), an = TAU * (v.rot + this._ang + v.turn * e);
       const c = Math.cos(an), sn = Math.sin(an);
       for (let i = 0; i < N; i++) {
-        const x = U[2 * i] * v.sx, y = U[2 * i + 1] * v.sy;
+        const x = X[i], y = Y[i];
         P[2 * i] = cx + s * (x * c - y * sn);
         P[2 * i + 1] = cy - s * (x * sn + y * c);
       }
-      _render(ctx, P, N, this._closed, rgb, (_clamp(v.alpha, 0, 255) / 255) * Math.pow(0.7, e), w, glow, this._dots);
+      _render(ctx, P, N, this._closed, rgb, (_clamp(v.alpha, 0, 255) / 255) * Math.pow(0.7, e), w, glow, this._dots, D);
     }
     return this;
   }

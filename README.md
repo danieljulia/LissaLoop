@@ -78,7 +78,8 @@ figure **morphs** from the old one instead of jumping.
 
 | Call | Figure |
 | --- | --- |
-| `.lissa(a, b, ph)` | Lissajous `x = sin(a·t + ph)`, `y = sin(b·t)`. Phase in turns (0.25 = round) |
+| `.lissa(a, b)` | Lissajous `x = sin(a·t + ph)`, `y = sin(b·t)`. Phase with `.phase(p)`, in turns (0.25 = round, the default) |
+| `.lissa(a, b, c)` | 3D Lissajous: adds depth `z = cos(c·t)`, seen slightly tilted and orbiting (change it after with `.tilt()` `.orbit()`) |
 | `.form(f)` | the waves of the Lissajous: `'sin'` `'tri'` `'sqr'` `'saw'` |
 | `.rose(n, d)` | rhodonea flower with `n/d` petals |
 | `.poly(n, m)` | star polygon {n/m}. The beam slows at the corners, so vertices glow |
@@ -86,9 +87,24 @@ figure **morphs** from the old one instead of jumping.
 | `.wave(gain)` | the classic scope: the sound wave, with trigger so tones stand still |
 | `.raw()` | with `wave`, `ring` or `xy`: the sound exactly as it comes. Real volume (no automatic gain, so quiet music draws small and ±1 is full scale) and, for `wave`, no trigger and the whole buffer (~23 ms), so it rolls like the raw signal |
 | `.xy(gain, d)` | X-Y mode: the wave against itself `d` samples later. Without `d`, the delay is a quarter period of the main note, so a pure tone is a circle and every harmonic adds a loop |
+| `.fn(t => [x, y, z])` | return a 3rd value and your figure has depth |
 | `.fn(t => [x, y])` | your own figure, `t` from 0 to TAU (2nd argument: 0..1). The 3rd argument has this frame's settings: `.fn((t, u, p) => [sin(p.a * t), tan(p.b * t)]).r('a', bass, 8, 32)` |
 
 Ratios can glide: `.r('a', lfo(16), 1, 4)` passes through every figure between 1:b and 4:b.
+
+### 3D
+
+Any figure can turn in space; `lissa(a, b, c)` and `fn` returning `[x, y, z]` also have depth.
+The figure is turned, then drawn with perspective: the near side is bigger and brighter.
+
+| Call | Effect |
+| --- | --- |
+| `.tilt(t)` | lean towards you, in turns (0.25 = seen from above) |
+| `.yaw(y)` | turn around the vertical axis, in turns |
+| `.orbit(o)` | keep turning around the vertical axis, turns per bar (follows the tempo) |
+| `.persp(p)` | perspective: 0 flat … 1 normal (default) … 2 strong |
+
+`.spin()` and `.rot()` still turn the figure in the plane of the screen, after the 3D turn.
 
 ### Look and motion
 
@@ -127,7 +143,7 @@ The same signals as flocks.js (normalized 0..1, adaptive noise gate): `bass` `mi
 | `.calm()` | no reactions. A new beam pulses with the bass until your first `.r()` |
 
 Props for `r()`: `size x y sx sy rot spin width glow hue sat bri alpha a b ph drift fuzz wob gain d
-pts echo scale turn loops`.
+pts echo scale turn loops c tilt yaw orbit persp`.
 
 ### Screen
 

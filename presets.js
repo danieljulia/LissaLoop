@@ -2,6 +2,31 @@
    Each one is plain editor code (init + live). Add yours here. */
 const PRESETS = [
 
+{ name: '3D knot', code: `// 3D knot
+// lissa(a, b, c): a third axis turns c times, and the figure is seen in space.
+// the near side is bigger and brighter. orbit = it keeps turning with the tempo
+// bass = depth ratio writhes · mids = the camera leans · beat = a kick of size
+
+function init() {
+  k = beam()
+    .lissa(3, 2, 5).col('#5cd6ff')
+    .size(0.5).width(1.8).glow(0.9) // smaller: the near side grows with perspective
+    .orbit(0.25)                  // a quarter turn in space per bar
+    .r('c', bass, 5, 7)           // bass: the depth twists more
+    .r('tilt', mid, 0.05, 0.2)    // mids: seen more from above
+    .r('size', beat, 1.1)
+  f = beam()
+    .rose(5).col('#ff5c8a').size(0.3)
+    .tilt(0.2).orbit(-0.5)        // a flat flower turning in space
+}
+
+function live() {
+  trail(0.15)
+  k.draw()
+  f.draw()
+}
+` },
+
 { name: 'Lissajous drift', code: `// Lissajous drift
 // the classic: a 3:2 figure that slowly turns on itself.
 // bass = size · mids = the sound shakes the line · tempo = drift speed
