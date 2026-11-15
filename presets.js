@@ -128,22 +128,28 @@ function live() {
 
 { name: 'Own formula', code: `// Own formula
 // fn() draws any figure: return [x, y] for t = 0..TAU.
-// wav(t) gives you the sound wave to bend it
+// its 3rd argument p has the settings of the beam, so .r() changes
+// the formula itself with the music:
+// bass = lobes (p.a) · mids = ripples (p.b) · highs = how deep they bend (p.gain)
+// wav(u) bends the line with the sound wave · beat = a jolt
 
 function init() {
-  k = 7
-  p = beam()
-    .fn(t => [
-      sin(3 * t) * (0.7 + 0.3 * cos(k * t)),
-      cos(2 * t) * (0.7 + 0.3 * sin(k * t)) + 0.2 * wav(t / TAU),
+  o = beam()
+    .fn((t, u, p) => [
+      sin(3 * t) * (1 - p.gain * 0.5 * (1 + cos(p.a * t))),
+      cos(2 * t) * (1 - p.gain * 0.5 * (1 + sin(p.b * t))) + 0.15 * wav(u),
     ])
+    .r('a', bass, 4, 12)          // bass: 4 → 12 lobes, writhing in between
+    .r('b', mid, 3, 9)            // mids: ripples
+    .r('gain', treble, 0.15, 0.5) // highs: deeper cuts
+    .r('size', beat, 1.12)        // a jolt on every hit
     .col('#c792ea').size(0.75).spin(0.25)
-    .r('width', bass, 1, 3)
+    .glide(0.85)
 }
 
 function live() {
-  trail(0.1)
-  p.draw()
+  trail(0.12)
+  o.draw()
 }
 ` },
 
