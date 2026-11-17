@@ -12,6 +12,7 @@
      b.lissa(3, 2, 5)            // 3D Lissajous: z turns 5 times (flat until you turn it)
      b.tilt(0.1).orbit(0.25)     // 3D view: lean towards you · keep turning (turns per bar)
      b.flat()                    // always flat 2D, whatever it was before
+     b.fill(0.2)                 // light inside, stained glass where it crosses ('solid' = all)
      b.rose(5)                   // flower with 5 petals (.rose(5, 3) = 5/3)
      b.poly(5, 2)                // star polygon {5/2} (.poly(4) = square)
      b.ring()                    // a circle bent by the sound wave
@@ -234,7 +235,7 @@ const _FORMS = {
   saw: t => { const x = t / TAU; return 2 * (x - Math.floor(x + 0.5)); },
 };
 const _PROPS = ['size', 'x', 'y', 'sx', 'sy', 'rot', 'spin', 'width', 'glow', 'hue', 'sat', 'bri',
-  'alpha', 'a', 'b', 'ph', 'drift', 'fuzz', 'wob', 'gain', 'd', 'pts', 'echo', 'scale', 'turn', 'loops', 'c', 'yaw', 'tilt', 'orbit', 'persp'];
+  'alpha', 'a', 'b', 'ph', 'drift', 'fuzz', 'wob', 'gain', 'd', 'pts', 'echo', 'scale', 'turn', 'loops', 'c', 'yaw', 'tilt', 'orbit', 'persp', 'fill'];
 const _isInt = x => Math.abs(x - Math.round(x)) < 0.001;
 let _lastBeam = null;
 let _warn = null; // last warning of the library (reset on every run)
@@ -262,11 +263,12 @@ class Beam {
       size: 0.6, x: 0, y: 0, sx: 1, sy: 1, rot: 0, spin: 0, width: 1.6, glow: 0.7,
       a: this._roll.a, b: this._roll.b, ph: 0.25, drift: 0.05, fuzz: 0, wob: 0,
       gain: 1, d: null, pts: 900, echo: 0, scale: 0.8, turn: 0, loops: 1,
-      c: null, yaw: 0, tilt: 0, orbit: 0, persp: 1,
+      c: null, yaw: 0, tilt: 0, orbit: 0, persp: 1, fill: 0,
     };
     this.col(this._roll.col);
     this._mode = 'lissa'; this._form = 'sin'; this._fn = null;
     this._dots = false; this._glide = 0.9; this._raw = false; this._flat = false;
+    this._fillRule = 'evenodd';
     this._rx = [{ prop: 'size', fn: bass, a: 1.3 }]; // until your first r()
     this._rxAuto = true;
     _lastBeam = this;
@@ -314,6 +316,10 @@ class Beam {
   orbit(o)        { return this._set('orbit', o); }  // keep turning around the vertical axis, turns per bar
   persp(p)        { return this._set('persp', p); }  // perspective: 0 flat … 1 normal … 2 strong
   flat(on = true) { this._flat = on; return this; }  // always 2D: no depth, no 3D turns (spin still works)
+  // fill(a): light inside the figure, 0..1. Where the line crosses itself the fill
+  // turns on and off (stained glass); fill(a, 'solid') fills it all.
+  // Only closed figures: lissa, rose, poly, ring, fn
+  fill(a = 0.2, mode = 'glass') { this._p.fill = a; this._fillRule = mode === 'solid' ? 'nonzero' : 'evenodd'; return this; }
   echo(n = 3, scale = 0.8, turn = 0) { this._p.echo = n; this._p.scale = scale; this._p.turn = turn; return this; }
   dots(on = true) { this._dots = on; return this; }
   glide(g)        { this._glide = _clamp(_num(g, 0.9), 0, 0.99); return this; }
@@ -547,6 +553,7 @@ class Beam {
     const E = _clamp(Math.round(v.echo), 0, 24);
     const P = new Float32Array(2 * N), ctx = g.drawingContext;
     const w = Math.max(0.3, v.width), glow = _clamp(v.glow, 0, 2);
+    const fa = ['lissa', 'rose', 'poly', 'ring', 'fn'].includes(this._mode) && !this._dots ? _clamp(v.fill, 0, 1) : 0;
     for (let e = 0; e <= E; e++) {
       const s = R * Math.pow(v.scale, e), an = TAU * (v.rot + this._ang + v.turn * e);
       const c = Math.cos(an), sn = Math.sin(an);
@@ -555,7 +562,16 @@ class Beam {
         P[2 * i] = cx + s * (x * c - y * sn);
         P[2 * i + 1] = cy - s * (x * sn + y * c);
       }
-      _render(ctx, P, N, this._closed, rgb, (_clamp(v.alpha, 0, 255) / 255) * Math.pow(0.7, e), w, glow, this._dots, D);
+      const al = (_clamp(v.alpha, 0, 255) / 255) * Math.pow(0.7, e);
+      if (fa > 0.002) {                       // fill under the line, light that adds up
+        const path = new Path2D();
+        path.moveTo(P[0], P[1]);
+        for (let i = 1; i < N; i++) path.lineTo(P[2 * i], P[2 * i + 1]);
+        path.closePath();
+        ctx.fillStyle = `rgba(${rgb[0] | 0},${rgb[1] | 0},${rgb[2] | 0},${fa * al})`;
+        ctx.fill(path, this._fillRule);
+      }
+      _render(ctx, P, N, this._closed, rgb, al, w, glow, this._dots, D);
     }
     return this;
   }

@@ -90,6 +90,9 @@ h                hide/show this help
   .fuzz(0.2)           noise on the beam
   .echo(4, 0.8, 0.05)  copies: n, scale, turn
   .dots()              dots instead of a line
+  .fill(0.2)           light inside: stained glass where
+                       it crosses · .fill(0.2, 'solid')
+                       .r('fill', beat, 0, 0.6) flashes
   .pts(900)            points of the figure
   .loops(2)            times the figure is traced:
                        3.5:2 closes with 2 · < 1 = a part
@@ -121,7 +124,7 @@ h                hide/show this help
   .r('hue', mid, 120, 200) color: hue sat bri alpha
      also: x y sx sy rot spin width glow a b
      phase→ph drift fuzz wob gain echo scale turn loops
-     c tilt yaw orbit persp
+     c tilt yaw orbit persp fill
   .calm()              no reactions (a new beam
                        pulses with the bass until
                        your first .r())
@@ -149,7 +152,7 @@ const _HL_LIB = new Set(['beam','bass','mid','treble','amp','beat','onset','pitc
   'bpm','tap','phase','bar','tick','lfo','tempo','PI','TAU','HALF_PI','QUARTER_PI','sin','cos','tan','abs','min','max',
   'map','constrain','frameCount','floor','round','sqrt','pow']);
 const _HL_METHODS = new Set(['lissa','rose','poly','ring','wave','xy','fn','form','size','at','stretch',
-  'rot','spin','drift','phase','width','glow','fuzz','wob','gain','pts','echo','dots','glide','col','r','calm','draw','smooth','beat','loops','raw','tilt','yaw','orbit','persp','flat']);
+  'rot','spin','drift','phase','width','glow','fuzz','wob','gain','pts','echo','dots','glide','col','r','calm','draw','smooth','beat','loops','raw','tilt','yaw','orbit','persp','flat','fill']);
 const _hlEsc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 function highlight(code) {
   const re = /(\/\/[^\n]*|\/\*[\s\S]*?(?:\*\/|$))|("(?:\\.|[^"\\\n])*"?|'(?:\\.|[^'\\\n])*'?|`(?:\\.|[^`\\])*`?)|(\b\d+\.?\d*\b|\B\.\d+\b)|([A-Za-z_$][\w$]*)|([\s\S])/g;

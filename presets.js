@@ -2,6 +2,31 @@
    Each one is plain editor code (init + live). Add yours here. */
 const PRESETS = [
 
+{ name: 'Stained glass', code: `// Stained glass
+// filled figures: where the line crosses itself the fill turns on and off.
+// the fill flashes on every hit and grows with the bass; in silence, only lines
+
+function init() {
+  g = beam()
+    .lissa(5, 4).col('#ff5c8a').size(0.7)
+    .fill(0.12).drift(0.1)
+    .r('fill', beat, 0.08, 0.5)   // a flash of glass on every hit
+  s = beam()
+    .poly(7, 3).col('#5cd6ff').size(0.45)
+    .fill(0.1).spin(0.25)
+    .r('fill', bass, 0.05, 0.35)  // bass: the star lights up
+  r = beam()
+    .rose(6).col('#ffb347').size(0.2)
+    .fill(0.3, 'solid').spin(-0.5)
+    .r('size', onset, 1.4)
+}
+
+function live() {
+  trail(0.3)
+  g.draw(); s.draw(); r.draw()
+}
+` },
+
 { name: '3D knot', code: `// 3D knot
 // lissa(a, b, c): a third axis turns c times, and the figure is seen in space.
 // the near side is bigger and brighter. orbit = it keeps turning with the tempo

@@ -123,6 +123,7 @@ When you take `.orbit()` out, the figure glides back to lying flat.
 | `.fuzz(x)` | noise on the beam |
 | `.echo(n, scale, turn)` | copies of the figure, smaller and turned |
 | `.dots()` | dots instead of a line |
+| `.fill(a, mode)` | light inside the figure, 0..1 (keep it low: light adds up). Where the line crosses itself the fill turns on and off, like stained glass; `.fill(0.2, 'solid')` fills it all. Closed figures only (lissa, rose, poly, ring, fn). `.r('fill', beat, 0, 0.6)` flashes on the hits |
 | `.loops(n)` | how many times the figure is traced (lissa, rose, poly, fn). `.lissa(3.5, 2).loops(2)` closes a fractional ratio; below 1 only a part is drawn: `.r('loops', bass, 0.1, 1)` writes the figure with the bass. Points grow with the loops |
 | `.pts(n)` `.glide(g)` | points of the figure · how smoothly changes arrive |
 
@@ -146,7 +147,7 @@ The same signals as flocks.js (normalized 0..1, adaptive noise gate): `bass` `mi
 | `.calm()` | no reactions. A new beam pulses with the bass until your first `.r()` |
 
 Props for `r()`: `size x y sx sy rot spin width glow hue sat bri alpha a b ph drift fuzz wob gain d
-pts echo scale turn loops c tilt yaw orbit persp`.
+pts echo scale turn loops c tilt yaw orbit persp fill`.
 
 ### Screen
 
