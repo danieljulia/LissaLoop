@@ -11,7 +11,7 @@ function init() {
   k = beam()
     .lissa(3, 2, 5).col('#5cd6ff')
     .size(0.5).width(1.8).glow(0.9) // smaller: the near side grows with perspective
-    .orbit(0.25)                  // a quarter turn in space per bar
+    .orbit(0.25).tilt(0.08)       // a quarter turn in space per bar, seen a bit from above
     .r('c', bass, 5, 7)           // bass: the depth twists more
     .r('tilt', mid, 0.05, 0.2)    // mids: seen more from above
     .r('size', beat, 1.1)

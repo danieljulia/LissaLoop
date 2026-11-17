@@ -79,7 +79,7 @@ figure **morphs** from the old one instead of jumping.
 | Call | Figure |
 | --- | --- |
 | `.lissa(a, b)` | Lissajous `x = sin(a·t + ph)`, `y = sin(b·t)`. Phase with `.phase(p)`, in turns (0.25 = round, the default) |
-| `.lissa(a, b, c)` | 3D Lissajous: adds depth `z = cos(c·t)`, seen slightly tilted and orbiting (change it after with `.tilt()` `.orbit()`) |
+| `.lissa(a, b, c)` | 3D Lissajous: adds depth `z = cos(c·t)`. It looks flat until you turn it: `.lissa(3, 2, 5).orbit(0.25).tilt(0.1)` |
 | `.form(f)` | the waves of the Lissajous: `'sin'` `'tri'` `'sqr'` `'saw'` |
 | `.rose(n, d)` | rhodonea flower with `n/d` petals |
 | `.poly(n, m)` | star polygon {n/m}. The beam slows at the corners, so vertices glow |
@@ -94,8 +94,9 @@ Ratios can glide: `.r('a', lfo(16), 1, 4)` passes through every figure between 1
 
 ### 3D
 
-Any figure can turn in space; `lissa(a, b, c)` and `fn` returning `[x, y, z]` also have depth.
-The figure is turned, then drawn with perspective: the near side is bigger and brighter.
+Figures are **flat by default**. Any figure can turn in space with `.tilt()`, `.yaw()` or `.orbit()`;
+`lissa(a, b, c)` and `fn` returning `[x, y, z]` also have depth, which shows once you turn them.
+A turned figure is drawn with perspective: the near side is bigger and brighter.
 
 | Call | Effect |
 | --- | --- |
@@ -103,8 +104,10 @@ The figure is turned, then drawn with perspective: the near side is bigger and b
 | `.yaw(y)` | turn around the vertical axis, in turns |
 | `.orbit(o)` | keep turning around the vertical axis, turns per bar (follows the tempo) |
 | `.persp(p)` | perspective: 0 flat … 1 normal (default) … 2 strong |
+| `.flat()` | force flat 2D even if turned: depth and 3D turns are ignored (`.spin()` still turns it on the screen) |
 
 `.spin()` and `.rot()` still turn the figure in the plane of the screen, after the 3D turn.
+When you take `.orbit()` out, the figure glides back to lying flat.
 
 ### Look and motion
 

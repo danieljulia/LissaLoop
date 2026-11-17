@@ -61,6 +61,7 @@ h                hide/show this help
   .lissa(3, 2)         Lissajous x:y (.phase(0.25)
                        = round, in turns)
   .lissa(3, 2, 5)      3D: depth turns 5 times
+                       (flat until you turn it)
   .rose(5)             flower · .rose(5, 3) = 5/3
   .poly(5, 2)          star {5/2} · .poly(4) square
   .ring(1)             circle bent by the sound wave
@@ -95,13 +96,14 @@ h                hide/show this help
                        .r('loops', bass, 0.1, 1) grows
   .glide(0.9)          changes arrive smoothly
 
-▸ 3D  (any figure can turn in space)
-  .lissa(3, 2, 5)      3D Lissajous (tilted, orbiting)
+▸ 3D  (figures are flat until you turn them)
+  .lissa(3, 2, 5)      3D Lissajous: add .orbit(0.25)
   .fn(t => [x, y, z])  your own 3D figure
   .tilt(0.1)           lean towards you (turns)
   .orbit(0.25)         keep turning (turns per bar)
   .yaw(0.1)            turn around vertical (turns)
   .persp(1)            perspective 0 flat … 2 strong
+  .flat()              force flat 2D, even if turned
      the far side is dimmer · r(): c tilt yaw orbit persp
 
 ▸ SOUND  (signals 0..1)
@@ -147,7 +149,7 @@ const _HL_LIB = new Set(['beam','bass','mid','treble','amp','beat','onset','pitc
   'bpm','tap','phase','bar','tick','lfo','tempo','PI','TAU','HALF_PI','QUARTER_PI','sin','cos','tan','abs','min','max',
   'map','constrain','frameCount','floor','round','sqrt','pow']);
 const _HL_METHODS = new Set(['lissa','rose','poly','ring','wave','xy','fn','form','size','at','stretch',
-  'rot','spin','drift','phase','width','glow','fuzz','wob','gain','pts','echo','dots','glide','col','r','calm','draw','smooth','beat','loops','raw','tilt','yaw','orbit','persp']);
+  'rot','spin','drift','phase','width','glow','fuzz','wob','gain','pts','echo','dots','glide','col','r','calm','draw','smooth','beat','loops','raw','tilt','yaw','orbit','persp','flat']);
 const _hlEsc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 function highlight(code) {
   const re = /(\/\/[^\n]*|\/\*[\s\S]*?(?:\*\/|$))|("(?:\\.|[^"\\\n])*"?|'(?:\\.|[^'\\\n])*'?|`(?:\\.|[^`\\])*`?)|(\b\d+\.?\d*\b|\B\.\d+\b)|([A-Za-z_$][\w$]*)|([\s\S])/g;

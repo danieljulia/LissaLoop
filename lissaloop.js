@@ -9,8 +9,9 @@
      b.draw()                    // inside live()
    Figures (choose one):
      b.lissa(3, 2)               // Lissajous x:y = 3:2 (phase in turns: .phase(0.25))
-     b.lissa(3, 2, 5)            // 3D Lissajous: z turns 5 times, seen orbiting
+     b.lissa(3, 2, 5)            // 3D Lissajous: z turns 5 times (flat until you turn it)
      b.tilt(0.1).orbit(0.25)     // 3D view: lean towards you · keep turning (turns per bar)
+     b.flat()                    // always flat 2D, whatever it was before
      b.rose(5)                   // flower with 5 petals (.rose(5, 3) = 5/3)
      b.poly(5, 2)                // star polygon {5/2} (.poly(4) = square)
      b.ring()                    // a circle bent by the sound wave
@@ -265,7 +266,7 @@ class Beam {
     };
     this.col(this._roll.col);
     this._mode = 'lissa'; this._form = 'sin'; this._fn = null;
-    this._dots = false; this._glide = 0.9; this._raw = false;
+    this._dots = false; this._glide = 0.9; this._raw = false; this._flat = false;
     this._rx = [{ prop: 'size', fn: bass, a: 1.3 }]; // until your first r()
     this._rxAuto = true;
     _lastBeam = this;
@@ -275,11 +276,10 @@ class Beam {
   _set(k, v) { this._p[k] = v; return this; }
 
   // --- figures ---
-  // lissa(a, b) is flat; lissa(a, b, c) adds depth z = cos(c·t) and is seen from
-  // a slightly tilted, slowly orbiting camera (change it after: .tilt() .orbit())
+  // lissa(a, b) is flat; lissa(a, b, c) adds depth z = cos(c·t). Figures are seen
+  // flat by default: the depth shows when you turn them (.tilt() .orbit() .yaw())
   lissa(a = 3, b = 2, c = null) {
     this._mode = 'lissa'; this._p.a = a; this._p.b = b; this._p.ph = 0.25; this._p.c = c;
-    if (c != null) { this._p.tilt = 0.08; this._p.orbit = 0.25; }
     return this;
   }
   rose(n = 5, d = 1, ph = 0)     { this._mode = 'rose';  this._p.a = n; this._p.b = d; this._p.ph = ph; return this; }
@@ -313,6 +313,7 @@ class Beam {
   yaw(y)          { return this._set('yaw', y); }    // turn around the vertical axis, in turns
   orbit(o)        { return this._set('orbit', o); }  // keep turning around the vertical axis, turns per bar
   persp(p)        { return this._set('persp', p); }  // perspective: 0 flat … 1 normal … 2 strong
+  flat(on = true) { this._flat = on; return this; }  // always 2D: no depth, no 3D turns (spin still works)
   echo(n = 3, scale = 0.8, turn = 0) { this._p.echo = n; this._p.scale = scale; this._p.turn = turn; return this; }
   dots(on = true) { this._dots = on; return this; }
   glide(g)        { this._glide = _clamp(_num(g, 0.9), 0, 0.99); return this; }
@@ -469,6 +470,14 @@ class Beam {
     this._ang += (v.spin * db) / 4;
     this._dph += (v.drift * db) / 4;
     this._orb += (v.orbit * db) / 4;
+    // no orbit any more: glide back to the nearest whole turn, so the figure
+    // lies flat again instead of staying seen at an angle
+    const orbitOff = !_num(this._p.orbit, 0) && !this._rx.some(r => r.prop === 'orbit'); // not in the code
+    if (orbitOff && this._orb % 1) {
+      const home = Math.round(this._orb);
+      this._orb += (home - this._orb) * (1 - _clamp(this._glide, 0.8, 0.96));
+      if (Math.abs(home - this._orb) < 1e-4) this._orb = 0;
+    }
 
     // more loops = a longer path: the points grow with it so the line stays smooth
     const N = _clamp(Math.round(v.pts * Math.max(1, v.loops)), 16, 6000);
@@ -511,11 +520,11 @@ class Beam {
 
     // 3D: turn the figure in space (yaw + orbit around the vertical axis, then tilt
     // towards you) and project it with perspective. The near side is bigger and
-    // brighter. Flat figures skip all this unless you turn them
+    // brighter. Figures are seen flat (straight on, no perspective) until you turn them
     const Z = this._Z;
     const X = new Float32Array(N), Y = new Float32Array(N);
     let D = null;
-    if (Z || v.tilt || v.yaw || v.orbit || this._orb % 1) {
+    if (!this._flat && (v.tilt || v.yaw || (!orbitOff && v.orbit) || this._orb % 1)) {
       const A = TAU * (v.yaw + this._orb), B = TAU * v.tilt;
       const ca = Math.cos(A), sa = Math.sin(A), cb = Math.cos(B), sb = Math.sin(B);
       const k = _clamp(v.persp, 0, 3), dist = k > 0 ? 3 / k : 0;
