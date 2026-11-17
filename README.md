@@ -59,10 +59,10 @@ every frame (draw them here). The code runs by itself shortly after you stop typ
 | Key | Action |
 | --- | --- |
 | Ctrl/Cmd+Enter | run the code now |
-| Ctrl/Cmd+E | hide/show the code |
+| Esc or Ctrl/Cmd+E | hide/show the code (works also when it is hidden) |
 | h | hide/show the quick reference |
 | t | tap tempo (or click the ♩ button) |
-| c | random color on the last beam |
+| Ctrl/Cmd+/ | comment or uncomment the selected lines (or the line of the cursor); Ctrl/Cmd+Z undoes it |
 
 **The piece lives in the link.** After every run that works, the code is saved (compressed) in the
 address of the page, so reloading keeps your piece and the **share** button copies a link that opens

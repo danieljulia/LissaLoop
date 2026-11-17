@@ -3,7 +3,7 @@
    The user code is shown over the canvas and is editable:
      auto-run     → the code runs by itself as you type
      Ctrl/Cmd+Enter → run the changes right now (no restart)
-     Ctrl/Cmd+E     → hide/show the editor
+     Esc / Ctrl/Cmd+E → hide/show the editor (works also when it is hidden)
    User code conventions:
      init() → runs once on every "run" (create/modify beams)
      live() → runs every frame inside draw()
@@ -39,7 +39,8 @@ const HELP_TEXT = `LISSALOOP — QUICK REFERENCE
 ─────────────────────────────
 Ctrl/Cmd+Enter   run the code (it also
                  auto-runs as you type)
-Ctrl/Cmd+E       hide/show the code
+Esc, Ctrl/Cmd+E  hide/show the code
+                 (also when it is hidden)
 h                hide/show this help
 
 ▸ SAVE & SHARE
@@ -143,8 +144,9 @@ h                hide/show this help
   grid(0.3)            graticule (0 = off)
   crt(0.5)             scanlines + dark corners
 
-▸ KEYS (outside the editor, on the last beam)
-  c  random color
+▸ KEYS IN THE CODE
+  Ctrl/Cmd+/           comment / uncomment the selected
+                       lines (or the line of the cursor)
 `;
 
 
@@ -182,6 +184,7 @@ function highlight(code) {
 const _HL_CSS = `
 .hc{color:#7d8799;font-style:italic} .hs{color:#c3e88d} .hn{color:#f78c6c}
 .hk{color:#c792ea} .hl{color:#ffcb6b} .hm{color:#82aaff} .hf{color:#89ddff}
+textarea::selection{background:rgba(255,210,92,.45);color:transparent}
 .hbg{background:rgba(0,0,0,.7);-webkit-box-decoration-break:clone;box-decoration-break:clone;
   padding:1px 4px;border-radius:3px}
 .fl{min-width:100%;width:max-content;margin:0 -12px;padding:0 12px;
@@ -375,15 +378,48 @@ function setup() {
       clearTimeout(_runTimer);
       runCode(_ta.value);
     }
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e') {
+    if (((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e') || e.key === 'Escape') {
       e.preventDefault();
       toggleEditor();
     }
+    if ((e.ctrlKey || e.metaKey) && (e.key === '/' || e.code === 'Slash')) {
+      e.preventDefault();
+      toggleComment();
+    }
   });
+
+  // Ctrl/Cmd+/ : comment or uncomment the selected lines (whole lines, even if
+  // the selection only touches them). If every line with code is commented,
+  // it uncomments; otherwise it comments them all, at the indentation of the block.
+  // Goes through the browser's insertText, so Ctrl/Cmd+Z undoes it.
+  function toggleComment() {
+    const v = _ta.value;
+    let a = _ta.selectionStart, b = _ta.selectionEnd;
+    if (b > a && v[b - 1] === '\n') b--;                 // a selection ending at a line start
+    const start = v.lastIndexOf('\n', a - 1) + 1;
+    let end = v.indexOf('\n', b); if (end < 0) end = v.length;
+    const lines = v.slice(start, end).split('\n');
+    const code = lines.filter(l => l.trim());
+    if (!code.length) return;
+    const off = code.every(l => /^\s*\/\//.test(l));
+    const ind = Math.min(...code.map(l => l.match(/^\s*/)[0].length));
+    const out = lines.map(l => {
+      if (!l.trim()) return l;
+      if (off) return l.replace(/^(\s*)\/\/ ?/, '$1');
+      return l.slice(0, ind) + '// ' + l.slice(ind);
+    }).join('\n');
+    _ta.focus();
+    _ta.setSelectionRange(start, end);
+    if (!document.execCommand('insertText', false, out)) {   // fallback (no undo)
+      _ta.setRangeText(out, start, end, 'end');
+      _ta.dispatchEvent(new Event('input'));
+    }
+    _ta.setSelectionRange(start, start + out.length);       // keep the lines selected
+  }
 
   // hint above the bottom buttons
   const hint = document.createElement('div');
-  hint.textContent = 'auto-run on edit · Ctrl/Cmd+Enter: run now · Ctrl/Cmd+E: hide · h: help · t: tap tempo';
+  hint.textContent = 'auto-run on edit · Ctrl/Cmd+Enter: run now · Ctrl/Cmd+/: comment · Esc: hide/show code · h: help · t: tap tempo';
   Object.assign(hint.style, {
     position: 'fixed', left: '14px', bottom: '14px', zIndex: 10,
     color: 'rgba(255,255,255,0.6)', font: '14px monospace',
@@ -472,8 +508,17 @@ function setup() {
     const hidden = wrap.style.display === 'none';
     wrap.style.display = hidden ? 'flex' : 'none';
     hint.style.display = hidden ? 'block' : 'none';
-    if (!hidden) _ta.blur();
+    if (hidden) _ta.focus(); else _ta.blur();   // shown again: you can type at once
   }
+  // Esc or Ctrl/Cmd+E show/hide the code from anywhere, also when it is hidden
+  // (inside the code the textarea handles them itself)
+  window.addEventListener('keydown', (e) => {
+    if (document.activeElement === _ta) return;
+    if (((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e') || e.key === 'Escape') {
+      e.preventDefault();
+      toggleEditor();
+    }
+  });
 
   // open the piece saved in the URL, if any (otherwise the demo)
   const loadUrl = () => _unpackCode(location.hash).then(code => {
@@ -546,8 +591,6 @@ function keyPressed() {
   if (document.activeElement === _ta) return; // editing: leave it alone
   if (key === 'h' || key === 'H') toggleHelp();
   if (key === 't' || key === 'T') tap();
-  // on-the-fly change to the most recently created beam
-  if (_lastBeam && key === 'c') _lastBeam.col(random(_PAL));
 }
 
 function windowResized() {
