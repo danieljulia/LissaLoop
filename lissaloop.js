@@ -13,12 +13,14 @@
      b.tilt(0.1).orbit(0.25)     // 3D view: lean towards you · keep turning (turns per bar)
      b.flat()                    // always flat 2D, whatever it was before
      b.fill(0.2)                 // light inside, stained glass where it crosses ('solid' = all)
+     b.off()                     // fade out, then no cost at all (.disable() too)
      b.rose(5)                   // flower with 5 petals (.rose(5, 3) = 5/3)
      b.poly(5, 2)                // star polygon {5/2} (.poly(4) = square)
      b.ring()                    // a circle bent by the sound wave
      b.wave()                    // classic scope: the sound wave, with trigger
      b.xy()                      // X-Y mode: the wave against itself, delayed
      b.wave().raw()              // the wave as it comes: real volume, no trigger
+     b.fft()                     // the spectrum: lows left, highs right (.fft(1, 'ring'): a circle)
      b.fn(t => [sin(3*t), cos(2*t)]) // your own figure, t = 0..TAU
      b.fn((t, u, p) => [sin(p.a*t), cos(p.b*t)]).r('a', bass, 2, 8) // p = settings
    Look and motion (everything chainable, numbers or signals):
@@ -172,6 +174,26 @@ function _samp(W, u) {
   return W[i] * (1 - f) + W[Math.min(W.length - 1, i + 1)] * f;
 }
 
+// ---------- SPECTRUM, NORMALIZED ----------
+// level 0..1 of the frequency f (Hz): its dB inside a 60 dB window that ends at the
+// loudest bin of the last seconds (raw: a fixed window, -100 … -10 dB)
+let _ftFrame = -1, _ftTop = -40;
+function _fftLevel(f, raw) {
+  if (!_au) return 0;
+  const s = _spectrum();
+  if (frameCount !== _ftFrame) {
+    _ftFrame = frameCount;
+    let mx = -120;
+    for (let i = 1; i < s.length; i++) if (s[i] > mx) mx = s[i];
+    _ftTop = Math.max(mx, _ftTop - 0.15, -90);
+  }
+  const top = raw ? -10 : _ftTop, range = raw ? 90 : 60;
+  const bw = getAudioContext().sampleRate / 2 / s.length;
+  const x = f / bw, i = Math.min(s.length - 2, Math.floor(x)), fr = x - i;
+  return _clamp((s[i] + (s[i + 1] - s[i]) * fr - (top - range)) / range, 0, 1);
+}
+const _fftHz = u => 30 * Math.pow(16000 / 30, u); // 0..1 → 30 Hz … 16 kHz, log (like we hear)
+
 // ---------- DRAWING A BEAM ----------
 // A real beam is brighter where it moves slowly and fainter where it jumps.
 // Each segment gets a brightness from its length; segments are grouped in a
@@ -253,6 +275,7 @@ class Beam {
     this._last = null;      // last figure (for morphing)
     this._snap = null; this._m = 0; this._drawn = null;
     this._orb = 0;          // 3D turn made by orbit()
+    this._vis = 1;          // 1 visible … 0 switched off (fades with off())
     this._Z = null; this._lastZ = null; this._snapZ = null; // depth of the figure (3D)
     this._reset();
   }
@@ -267,8 +290,9 @@ class Beam {
     };
     this.col(this._roll.col);
     this._mode = 'lissa'; this._form = 'sin'; this._fn = null;
-    this._dots = false; this._glide = 0.9; this._raw = false; this._flat = false;
+    this._dots = false; this._glide = 0.9; this._raw = false; this._flat = false; this._fftRing = false;
     this._fillRule = 'evenodd';
+    this._off = false;
     this._rx = [{ prop: 'size', fn: bass, a: 1.3 }]; // until your first r()
     this._rxAuto = true;
     _lastBeam = this;
@@ -293,6 +317,9 @@ class Beam {
   // wave / ring / xy with the sound exactly as it comes: real volume (no automatic
   // gain: quiet music draws small) and, for wave(), no trigger and the whole buffer
   raw(on = true) { this._raw = on; return this; }
+  // fft(): the spectrum, low notes on the left, highs on the right (log scale).
+  // fft(gain, 'ring'): around a circle, lows at the top, mirrored left/right
+  fft(gain = 1, shape = 'line') { this._mode = 'fft'; this._p.gain = gain; this._fftRing = shape === 'ring'; return this; }
   form(f) { if (_FORMS[f]) this._form = f; return this; }
 
   // --- look and motion ---
@@ -316,6 +343,10 @@ class Beam {
   orbit(o)        { return this._set('orbit', o); }  // keep turning around the vertical axis, turns per bar
   persp(p)        { return this._set('persp', p); }  // perspective: 0 flat … 1 normal … 2 strong
   flat(on = true) { this._flat = on; return this; }  // always 2D: no depth, no 3D turns (spin still works)
+  // off(): fades out in half a second, then the beam is not computed at all (no cost).
+  // Take it out of the code and the beam fades back in. off(false) = on
+  off(on = true)  { this._off = !!on; return this; }
+  disable(on = true) { return this.off(on); }
   // fill(a): light inside the figure, 0..1. Where the line crosses itself the fill
   // turns on and off (stained glass); fill(a, 'solid') fills it all.
   // Only closed figures: lissa, rose, poly, ring, fn
@@ -433,6 +464,26 @@ class Beam {
         }
         break;
       }
+      case 'fft': {
+        const raw = this._raw;
+        if (this._fftRing) {                            // closed: lows at the top, mirrored
+          for (let i = 0; i < N; i++) {
+            const u = i / N, m = u < 0.5 ? u * 2 : (1 - u) * 2;
+            const r = 0.35 + 0.65 * _clamp(v.gain * _fftLevel(_fftHz(m), raw), 0, 1.5);
+            const th = Math.PI / 2 + TAU * u;
+            U[2 * i] = r * Math.cos(th); U[2 * i + 1] = r * Math.sin(th);
+          }
+        } else {
+          const asp = width / Math.min(width, height) / Math.max(0.05, Math.abs(v.size));
+          closed = false;
+          for (let i = 0; i < N; i++) {
+            const u = i / (N - 1);
+            U[2 * i] = (2 * u - 1) * asp;
+            U[2 * i + 1] = -0.8 + 1.6 * _clamp(v.gain * _fftLevel(_fftHz(u), raw), 0, 1.2);
+          }
+        }
+        break;
+      }
       case 'xy': {
         const w = _wave();
         _waveN(); // keeps the automatic gain updated
@@ -466,6 +517,8 @@ class Beam {
   draw() {
     const g = _screen();
     if (!g) return this;
+    this._vis += ((this._off ? 0 : 1) - this._vis) * 0.15;
+    if (this._off && this._vis < 0.01) { this._vis = 0; this._lastB = null; return this; } // off: no work at all
     const v = {};
     for (const k of _PROPS) v[k] = this._v(k);
 
@@ -553,7 +606,7 @@ class Beam {
     const E = _clamp(Math.round(v.echo), 0, 24);
     const P = new Float32Array(2 * N), ctx = g.drawingContext;
     const w = Math.max(0.3, v.width), glow = _clamp(v.glow, 0, 2);
-    const fa = ['lissa', 'rose', 'poly', 'ring', 'fn'].includes(this._mode) && !this._dots ? _clamp(v.fill, 0, 1) : 0;
+    const fa = (['lissa', 'rose', 'poly', 'ring', 'fn'].includes(this._mode) || (this._mode === 'fft' && this._fftRing)) && !this._dots ? _clamp(v.fill, 0, 1) : 0;
     for (let e = 0; e <= E; e++) {
       const s = R * Math.pow(v.scale, e), an = TAU * (v.rot + this._ang + v.turn * e);
       const c = Math.cos(an), sn = Math.sin(an);
@@ -562,7 +615,7 @@ class Beam {
         P[2 * i] = cx + s * (x * c - y * sn);
         P[2 * i + 1] = cy - s * (x * sn + y * c);
       }
-      const al = (_clamp(v.alpha, 0, 255) / 255) * Math.pow(0.7, e);
+      const al = (_clamp(v.alpha, 0, 255) / 255) * Math.pow(0.7, e) * this._vis;
       if (fa > 0.002) {                       // fill under the line, light that adds up
         const path = new Path2D();
         path.moveTo(P[0], P[1]);

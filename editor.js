@@ -69,6 +69,8 @@ h                hide/show this help
   .wave().raw()        the wave as it comes: real
                        volume, no trigger, ~23 ms
                        (.raw() works on ring, xy too)
+  .fft(1)              the spectrum: lows left, highs
+                       right · .fft(1, 'ring') a circle
   .xy(1)               X-Y: the wave vs itself delayed
                        (.xy(1, 20) = 20 samples delay)
   .fn(t => [sin(3*t), cos(2*t)])   your own, t 0..TAU
@@ -98,6 +100,8 @@ h                hide/show this help
                        3.5:2 closes with 2 · < 1 = a part
                        .r('loops', bass, 0.1, 1) grows
   .glide(0.9)          changes arrive smoothly
+  .off()               fade out, then no cost at all
+                       (take it out = back in) · .disable()
 
 ▸ 3D  (figures are flat until you turn them)
   .lissa(3, 2, 5)      3D Lissajous: add .orbit(0.25)
@@ -152,7 +156,7 @@ const _HL_LIB = new Set(['beam','bass','mid','treble','amp','beat','onset','pitc
   'bpm','tap','phase','bar','tick','lfo','tempo','PI','TAU','HALF_PI','QUARTER_PI','sin','cos','tan','abs','min','max',
   'map','constrain','frameCount','floor','round','sqrt','pow']);
 const _HL_METHODS = new Set(['lissa','rose','poly','ring','wave','xy','fn','form','size','at','stretch',
-  'rot','spin','drift','phase','width','glow','fuzz','wob','gain','pts','echo','dots','glide','col','r','calm','draw','smooth','beat','loops','raw','tilt','yaw','orbit','persp','flat','fill']);
+  'rot','spin','drift','phase','width','glow','fuzz','wob','gain','pts','echo','dots','glide','col','r','calm','draw','smooth','beat','loops','raw','tilt','yaw','orbit','persp','flat','fill','off','disable','fft']);
 const _hlEsc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 function highlight(code) {
   const re = /(\/\/[^\n]*|\/\*[\s\S]*?(?:\*\/|$))|("(?:\\.|[^"\\\n])*"?|'(?:\\.|[^'\\\n])*'?|`(?:\\.|[^`\\])*`?)|(\b\d+\.?\d*\b|\B\.\d+\b)|([A-Za-z_$][\w$]*)|([\s\S])/g;

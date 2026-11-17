@@ -86,6 +86,8 @@ figure **morphs** from the old one instead of jumping.
 | `.ring(gain)` | a circle bent by the sound wave |
 | `.wave(gain)` | the classic scope: the sound wave, with trigger so tones stand still |
 | `.raw()` | with `wave`, `ring` or `xy`: the sound exactly as it comes. Real volume (no automatic gain, so quiet music draws small and ±1 is full scale) and, for `wave`, no trigger and the whole buffer (~23 ms), so it rolls like the raw signal |
+| `.fft(gain)` | the spectrum: how loud each frequency is, lows on the left and highs on the right (log scale, 30 Hz – 16 kHz). The window follows the loudest sound of the last seconds; with `.raw()` it is fixed |
+| `.fft(gain, 'ring')` | the spectrum around a circle, lows at the top, mirrored left/right. A closed figure, so `.fill()` works |
 | `.xy(gain, d)` | X-Y mode: the wave against itself `d` samples later. Without `d`, the delay is a quarter period of the main note, so a pure tone is a circle and every harmonic adds a loop |
 | `.fn(t => [x, y, z])` | return a 3rd value and your figure has depth |
 | `.fn(t => [x, y])` | your own figure, `t` from 0 to TAU (2nd argument: 0..1). The 3rd argument has this frame's settings: `.fn((t, u, p) => [sin(p.a * t), tan(p.b * t)]).r('a', bass, 8, 32)` |
@@ -126,6 +128,7 @@ When you take `.orbit()` out, the figure glides back to lying flat.
 | `.fill(a, mode)` | light inside the figure, 0..1 (keep it low: light adds up). Where the line crosses itself the fill turns on and off, like stained glass; `.fill(0.2, 'solid')` fills it all. Closed figures only (lissa, rose, poly, ring, fn). `.r('fill', beat, 0, 0.6)` flashes on the hits |
 | `.loops(n)` | how many times the figure is traced (lissa, rose, poly, fn). `.lissa(3.5, 2).loops(2)` closes a fractional ratio; below 1 only a part is drawn: `.r('loops', bass, 0.1, 1)` writes the figure with the bass. Points grow with the loops |
 | `.pts(n)` `.glide(g)` | points of the figure · how smoothly changes arrive |
+| `.off()` | the beam fades out in half a second and then is not computed at all (no cost). Take `.off()` out and it fades back in. Also `.disable()`; `.off(false)` = on |
 
 Every setting can be a number or a signal.
 
