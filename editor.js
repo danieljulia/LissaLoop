@@ -182,13 +182,13 @@ function highlight(code) {
 const _HL_CSS = `
 .hc{color:#7d8799;font-style:italic} .hs{color:#c3e88d} .hn{color:#f78c6c}
 .hk{color:#c792ea} .hl{color:#ffcb6b} .hm{color:#82aaff} .hf{color:#89ddff}
+.hbg{background:rgba(0,0,0,.7);-webkit-box-decoration-break:clone;box-decoration-break:clone;
+  padding:1px 4px;border-radius:3px}
 .fl{min-width:100%;width:max-content;margin:0 -12px;padding:0 12px;
-  background:rgba(125,255,154,.10);box-shadow:inset 3px 0 0 rgba(125,255,154,.8);
-  animation:lineflash .7s ease-out}
-.fl.fe{background:rgba(255,90,90,.12);box-shadow:inset 3px 0 0 rgba(255,90,90,.9);
-  animation:lineflashErr .7s ease-out}
-@keyframes lineflash{0%{background:rgba(125,255,154,.55)}100%{background:rgba(125,255,154,.10)}}
-@keyframes lineflashErr{0%{background:rgba(255,90,90,.6)}100%{background:rgba(255,90,90,.12)}}`;
+  box-shadow:inset 3px 0 0 rgba(125,255,154,.8);animation:lineflash .7s ease-out}
+.fl.fe{box-shadow:inset 3px 0 0 rgba(255,90,90,.9);animation:lineflashErr .7s ease-out}
+@keyframes lineflash{0%{background:rgba(125,255,154,.5)}100%{background:rgba(125,255,154,0)}}
+@keyframes lineflashErr{0%{background:rgba(255,90,90,.55)}100%{background:rgba(255,90,90,0)}}`;
 
 let _err = null;     // error of the last run (syntax / init)
 let _liveErr = null; // error of live() this frame
@@ -300,8 +300,10 @@ function setup() {
     position: 'fixed', top: '64px', left: '12px', right: '12px',
     height: 'calc(100vh - 106px)', zIndex: 10,
     display: 'flex', overflow: 'hidden',
-    background: 'rgba(0,0,0,0.55)',
-    border: '1px solid rgba(255,255,255,0.25)', borderRadius: '6px',
+    // no dark panel: only the text itself gets a dark backing (see .hbg),
+    // so the visuals shine through everywhere else at full brightness
+    background: 'transparent',
+    border: '1px solid rgba(255,255,255,0.08)', borderRadius: '6px',
   });
   document.body.appendChild(wrap);
 
@@ -346,8 +348,8 @@ function setup() {
     const n = _ta.value.split('\n').length;
     let s = '';
     for (let i = 0; i < n; i++) s += String(i).padStart(2, '0') + '\n';
-    _gutter.textContent = s;
-    _hlPre.innerHTML = highlight(_ta.value) + '\n';
+    _gutter.innerHTML = `<span class="hbg">${s}</span>`;
+    _hlPre.innerHTML = `<span class="hbg">${highlight(_ta.value)}</span>\n`;
     _gutter.scrollTop = _ta.scrollTop;
   };
   updateGutter();
