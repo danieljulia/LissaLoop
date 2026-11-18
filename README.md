@@ -118,6 +118,7 @@ When you take `.orbit()` out, the figure glides back to lying flat.
 | `.size(s)` | 1 = fills the screen |
 | `.at(x, y)` | center, -1..1 |
 | `.stretch(sx, sy)` | stretch |
+| `.flipx(f)` `.flipy(f)` | mirror left-right / up-down: 0 normal, 1 mirrored, in between it turns like a coin (flat at 0.5). Number or signal: `.r('flipx', beat, 0, 1)` flips on every hit |
 | `.rot(a)` `.spin(s)` | angle in turns · turns per bar (follows the tempo) |
 | `.drift(d)` `.phase(p)` | the phase moves (turns per bar) · fixed phase |
 | `.col(c)` `.width(px)` `.glow(g)` | color, beam width, halo 0..2 |
@@ -150,7 +151,7 @@ The same signals as flocks.js (normalized 0..1, adaptive noise gate): `bass` `mi
 | `.calm()` | no reactions. A new beam pulses with the bass until your first `.r()` |
 
 Props for `r()`: `size x y sx sy rot spin width glow hue sat bri alpha a b ph drift fuzz wob gain d
-pts echo scale turn loops c tilt yaw orbit persp fill`.
+pts echo scale turn loops c tilt yaw orbit persp fill flipx flipy`.
 
 ### Screen
 

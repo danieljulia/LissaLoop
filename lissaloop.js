@@ -12,6 +12,7 @@
      b.lissa(3, 2, 5)            // 3D Lissajous: z turns 5 times (flat until you turn it)
      b.tilt(0.1).orbit(0.25)     // 3D view: lean towards you · keep turning (turns per bar)
      b.flat()                    // always flat 2D, whatever it was before
+     b.flipx(1)                  // mirror left-right (flipy: up-down); in between = turning coin
      b.fill(0.2)                 // light inside, stained glass where it crosses ('solid' = all)
      b.off()                     // fade out, then no cost at all (.disable() too)
      b.rose(5)                   // flower with 5 petals (.rose(5, 3) = 5/3)
@@ -257,7 +258,7 @@ const _FORMS = {
   saw: t => { const x = t / TAU; return 2 * (x - Math.floor(x + 0.5)); },
 };
 const _PROPS = ['size', 'x', 'y', 'sx', 'sy', 'rot', 'spin', 'width', 'glow', 'hue', 'sat', 'bri',
-  'alpha', 'a', 'b', 'ph', 'drift', 'fuzz', 'wob', 'gain', 'd', 'pts', 'echo', 'scale', 'turn', 'loops', 'c', 'yaw', 'tilt', 'orbit', 'persp', 'fill'];
+  'alpha', 'a', 'b', 'ph', 'drift', 'fuzz', 'wob', 'gain', 'd', 'pts', 'echo', 'scale', 'turn', 'loops', 'c', 'yaw', 'tilt', 'orbit', 'persp', 'fill', 'flipx', 'flipy'];
 const _isInt = x => Math.abs(x - Math.round(x)) < 0.001;
 let _lastBeam = null;
 let _warn = null; // last warning of the library (reset on every run)
@@ -286,7 +287,7 @@ class Beam {
       size: 0.6, x: 0, y: 0, sx: 1, sy: 1, rot: 0, spin: 0, width: 1.6, glow: 0.7,
       a: this._roll.a, b: this._roll.b, ph: 0.25, drift: 0.05, fuzz: 0, wob: 0,
       gain: 1, d: null, pts: 900, echo: 0, scale: 0.8, turn: 0, loops: 1,
-      c: null, yaw: 0, tilt: 0, orbit: 0, persp: 1, fill: 0,
+      c: null, yaw: 0, tilt: 0, orbit: 0, persp: 1, fill: 0, flipx: 0, flipy: 0,
     };
     this.col(this._roll.col);
     this._mode = 'lissa'; this._form = 'sin'; this._fn = null;
@@ -343,6 +344,10 @@ class Beam {
   orbit(o)        { return this._set('orbit', o); }  // keep turning around the vertical axis, turns per bar
   persp(p)        { return this._set('persp', p); }  // perspective: 0 flat … 1 normal … 2 strong
   flat(on = true) { this._flat = on; return this; }  // always 2D: no depth, no 3D turns (spin still works)
+  // flipx / flipy: mirror left-right / up-down. 0 normal · 1 mirrored · in between
+  // it turns like a coin (flat at 0.5). A number or a signal: .flipx(beat)
+  flipx(f = 1)    { return this._set('flipx', f); }
+  flipy(f = 1)    { return this._set('flipy', f); }
   // off(): fades out in half a second, then the beam is not computed at all (no cost).
   // Take it out of the code and the beam fades back in. off(false) = on
   off(on = true)  { this._off = !!on; return this; }
@@ -582,6 +587,7 @@ class Beam {
     // brighter. Figures are seen flat (straight on, no perspective) until you turn them
     const Z = this._Z;
     const X = new Float32Array(N), Y = new Float32Array(N);
+    const fsx = v.sx * Math.cos(Math.PI * v.flipx), fsy = v.sy * Math.cos(Math.PI * v.flipy); // stretch + flip
     let D = null;
     if (!this._flat && (v.tilt || v.yaw || (!orbitOff && v.orbit) || this._orb % 1)) {
       const A = TAU * (v.yaw + this._orb), B = TAU * v.tilt;
@@ -589,7 +595,7 @@ class Beam {
       const k = _clamp(v.persp, 0, 3), dist = k > 0 ? 3 / k : 0;
       D = new Float32Array(N);
       for (let i = 0; i < N; i++) {
-        const x = U[2 * i] * v.sx, y = U[2 * i + 1] * v.sy, z = Z ? Z[i] : 0;
+        const x = U[2 * i] * fsx, y = U[2 * i + 1] * fsy, z = Z ? Z[i] : 0;
         const x1 = x * ca + z * sa, z1 = -x * sa + z * ca;
         const y1 = y * cb - z1 * sb, z2 = y * sb + z1 * cb;   // z2 > 0: towards you
         const f = dist ? dist / Math.max(0.3, dist - z2) : 1;
@@ -597,7 +603,7 @@ class Beam {
         D[i] = _clamp(0.55 + 0.35 * z2, 0.15, 1);
       }
     } else {
-      for (let i = 0; i < N; i++) { X[i] = U[2 * i] * v.sx; Y[i] = U[2 * i + 1] * v.sy; }
+      for (let i = 0; i < N; i++) { X[i] = U[2 * i] * fsx; Y[i] = U[2 * i + 1] * fsy; }
     }
 
     const R = (v.size * Math.min(width, height)) / 2;

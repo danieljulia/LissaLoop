@@ -84,6 +84,9 @@ h                hide/show this help
   .size(0.6)           1 = fills the screen
   .at(0.5, 0)          center, -1..1
   .stretch(1.5, 1)     stretch x, y
+  .flipx(1) .flipy(1)  mirror (0..1, in between it
+                       turns like a coin)
+                       .r('flipx', beat, 0, 1)
   .rot(0.125)          angle in turns
   .spin(1)             turns per bar (follows tempo)
   .drift(0.1)          phase moves (turns per bar)
@@ -129,7 +132,7 @@ h                hide/show this help
   .r('hue', mid, 120, 200) color: hue sat bri alpha
      also: x y sx sy rot spin width glow a b
      phase→ph drift fuzz wob gain echo scale turn loops
-     c tilt yaw orbit persp fill
+     c tilt yaw orbit persp fill flipx flipy
   .calm()              no reactions (a new beam
                        pulses with the bass until
                        your first .r())
@@ -158,7 +161,7 @@ const _HL_LIB = new Set(['beam','bass','mid','treble','amp','beat','onset','pitc
   'bpm','tap','phase','bar','tick','lfo','tempo','PI','TAU','HALF_PI','QUARTER_PI','sin','cos','tan','abs','min','max',
   'map','constrain','frameCount','floor','round','sqrt','pow']);
 const _HL_METHODS = new Set(['lissa','rose','poly','ring','wave','xy','fn','form','size','at','stretch',
-  'rot','spin','drift','phase','width','glow','fuzz','wob','gain','pts','echo','dots','glide','col','r','calm','draw','smooth','beat','loops','raw','tilt','yaw','orbit','persp','flat','fill','off','disable','fft']);
+  'rot','spin','drift','phase','width','glow','fuzz','wob','gain','pts','echo','dots','glide','col','r','calm','draw','smooth','beat','loops','raw','tilt','yaw','orbit','persp','flat','fill','off','disable','fft','flipx','flipy']);
 const _hlEsc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 function highlight(code) {
   const re = /(\/\/[^\n]*|\/\*[\s\S]*?(?:\*\/|$))|("(?:\\.|[^"\\\n])*"?|'(?:\\.|[^'\\\n])*'?|`(?:\\.|[^`\\])*`?)|(\b\d+\.?\d*\b|\B\.\d+\b)|([A-Za-z_$][\w$]*)|([\s\S])/g;
